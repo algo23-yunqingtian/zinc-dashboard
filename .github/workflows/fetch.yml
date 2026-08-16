@@ -1,4 +1,4 @@
-name: Fetch Nickel Data
+name: Fetch Zinc Data
 
 on:
   schedule:
@@ -40,11 +40,11 @@ jobs:
           DATA_KEY: ${{ secrets.DATA_KEY || data_8e863643ecc13f11d2c669bdb672f7db }}
           SILICONFLOW_KEY: ${{ secrets.SILICONFLOW_KEY || "" }}
           DASHSCOPE_KEY: ${{ secrets.DASHSCOPE_KEY || "" }}
-        run: python fetch_data.py
+        run: python fetch_zn.py
 
       - name: Commit & push data.json
         run: |
-          git config user.name "ni-bot"
+          git config user.name "zn-bot"
           git config user.email "ni-bot@github.com"
           git add data.json
           git diff --cached --quiet || git commit -m "update data $(date +%Y-%m-%d\ %H:%M)"

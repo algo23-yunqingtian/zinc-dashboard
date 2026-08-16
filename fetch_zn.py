@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Nickel dashboard data fetcher — runs in GitHub Actions.
+"""zinc dashboard data fetcher — runs in GitHub Actions.
 Output: data.json (charts + news + analysis + AI + realtime)"""
 import json, os, time, sys, hashlib, urllib.request, re, urllib.parse
 from datetime import datetime, timedelta
@@ -7,8 +7,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # 统一新闻打分模块 (scorer v2 + 相关性闸门) + 实时解盘模块 (prompt 同源)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import scorer_v2
-import analyze
+import scorer_v2_zn as scorer_v2
+import analyze_zn as analyze
 
 # ── Config ──
 # Load .env if present (for local dev; GitHub Actions uses secrets)
@@ -42,17 +42,28 @@ DASHSCOPE_URL = "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode
 DASHSCOPE_MODEL = "qwen3.7-max"
 
 DATA_IDS = {
-    "lme_inventory":"FU00014815","lme_registered":"FU00014817","lme_cancelled":"FU00014818",
-    "lme_outflow":"FU00022586","lme_inflow":"FU00023167","shfe_lme_ratio":"a10156412",
-    "magma_discount":"ID01532826","indonesia_npi_rate":"ID01002077","indonesia_ref_prod":"ID02026189",
-    "indonesia_ref_cap":"ID02026192","indonesia_ref_rate":"ID02026188","nickel_bean_price":"a10100354",
-    "shfe_ni_settle":"FU00014982","lme_ni_settle":"FU00014810","shfe_oi":"FU00017556",
-    "china_inv_18":"ID01001673","china_inv_27":"ID01490913","bean_inv_18":"ID01366691",
-    "ref_profit":"ID01959846","chinese_ref_prod":"a10124958","chinese_ref_rate":"ID002084",
-    "ni_apparent_cons":"ID01001570","lme_sulfate_price":"ID00408401",
-    # Added from prompt_opt (资金面 + 需求侧)
+    # 价格
+    "shfe_zn_settle":"FU00016169","lme_zn_settle":"ID00188157",
+    "shfe_oi":"FU00017554",
+    # LME库存
+    "lme_inventory":"a10017992","lme_registered":"FU00016165","lme_cancelled":"FU00016166",
+    # 国内库存
+    "china_inv":"ID00188329",
+    # 供给
+    "chinese_prod":"ID01510883","chinese_rate":"ID01167334",
+    # 锌矿TC (矿端核心指标)
+    "zinc_conc_tc":"ID00188151","zinc_conc_tc_high":"ID00188150",
+    # 需求
+    "galvanized_prod":"ID00187499","zinc_alloy_rate":"ID01002076",
+    "apparent_cons":"ID01167427",
+    # 进口盈亏
+    "import_profit_tax":"ID01030236","import_profit_notax":"ID01030238",
+    "import_ratio_tax":"ID01030234","import_ratio_notax":"ID01030233",
+    # 现货升贴水
+    "guangdong_premium":"ID02038762","shanghai_premium":"ID02038785",
+    # 资金面
     "lme_position":"FU00033038","lme_fund_long":"FU00082051","lme_commercial_long":"FU00082053",
-    "lme_commercial_short":"FU00082055","stainless_cold_rolling":"ID01706382","chinese_ref_cap":"ID01002081",
+    "lme_commercial_short":"FU00082055",
 }
 
 # ── Cache (persist between runs so partial failures don't zero out charts) ──
@@ -211,16 +222,16 @@ def fetch_macro():
             if len(vals) >= 5:  # 至少5个金属才有指数意义
                 idx_series.append({"date": d, "value": round(sum(vals) / len(vals), 3)})
     out["sectors"]["equal_weight_6m"] = idx_series
-    # 镍相对板块: 镍归一化 / 板块指数 (首值=100)
-    out["sectors"]["ni_vs_sector"] = _series_div(
-        norms.get("NI", []),
+    # 锌相对板块: 锌归一化 / 板块指数 (首值=100)
+    out["sectors"]["zinc_vs_sector"] = _series_div(
+        norms.get("ZN", []),
         [{"date": p["date"], "value": p["value"]} for p in idx_series])
     for s in METAL_SYMBOLS:
         out["metals"][s] = {"name": METAL_NAMES[s], "norm": norms.get(s, []),
                             "raw": klines.get(s, [])[-120:]}
-    # 3) 跨品种比 (镍/铜, 镍/铝)
-    out["ratios"]["ni_cu"] = _series_div(norms.get("NI", []), norms.get("CU", []))
-    out["ratios"]["ni_al"] = _series_div(norms.get("NI", []), norms.get("AL", []))
+     # 3) 跨品种比 (锌/铜, 锌/铝)
+    out["ratios"]["zinc_cu"] = _series_div(norms.get("ZN", []), norms.get("CU", []))
+    out["ratios"]["zinc_al"] = _series_div(norms.get("ZN", []), norms.get("AL", []))
     # 4) 快照: 最新值 + 5日涨跌幅
     snap = {}
     for s in METAL_SYMBOLS:
@@ -274,8 +285,8 @@ def last_val(pts):
 # ── News (multi-source: DB scored → akshare fallback) ──
 _EXCLUDE = ['SHFE夜盘收盘','LME夜盘收盘','SHFE最新','LME库存','LME注销仓单',
     'LME现货结算','SHFE.*仓单','上期所基本金属仓单','LME金属技术策略',
-    'SHFE夜盘开盘','SHFE开盘_基本','SHFE收盘_基本','本周均价','镍现货报价',
-    '金川集团电解镍出厂','镍钴中间品价格']
+    'SHFE夜盘开盘','SHFE开盘_基本','SHFE收盘_基本','本周均价','锌现货报价',
+    '金川集团电解锌出厂','锌钴中间品价格']
 
 # ── akshare fallback (full coverage when Zhiji is down/rate-limited) ──
 def akshare_fallback():
@@ -303,9 +314,9 @@ def akshare_fallback():
             def fetch_one(date_str):
                 try:
                     df = ak.get_shfe_daily(date=date_str)
-                    ni = df[df['variety'] == 'NI']
-                    if len(ni) > 0:
-                        main = ni.loc[ni['volume'].idxmax()]
+                    zn = df[df['variety'] == 'ZN']
+                    if len(zn) > 0:
+                        main = zn.loc[zn['volume'].idxmax()]
                         return {
                             'date': date_str,
                             'settle': float(main['settle']),
@@ -328,10 +339,10 @@ def akshare_fallback():
             shfe_rows.sort(key=lambda x: x['date'])
 
             if shfe_rows:
-                fallback['shfe_ni_settle'] = [
+                fallback['shfe_zn_settle'] = [
                     {"date": r['date'], "value": r['settle']} for r in shfe_rows
                 ]
-                print(f"    B1 SHFE settle: {len(fallback['shfe_ni_settle'])} points, last={shfe_rows[-1]['settle']}")
+                print(f"    B1 SHFE settle: {len(fallback['shfe_zn_settle'])} points, last={shfe_rows[-1]['settle']}")
                 fallback['shfe_oi'] = [
                     {"date": r['date'], "value": r['open_interest']} for r in shfe_rows
                 ]
@@ -346,48 +357,54 @@ def akshare_fallback():
         # ── A1: LME inventory (macro_euro_lme_stock) ──
         try:
             df = ak.macro_euro_lme_stock()
-            date_c = '日期'
-            inv_c = '镍总库存'
-            reg_c = '镍注册库存'
-            cancel_c = '镍注销库存'
-            # Only take nickel columns
-            ni_df = df[[date_c, inv_c, reg_c, cancel_c]].copy()
-            ni_df = ni_df[ni_df[inv_c].notna()]
+            # akshare returns columns like "锌总库存", "锌注册库存", "锌注销库存"
+            inv_c = '锌总库存'
+            reg_c = '锌注册库存'
+            cancel_c = '锌注销库存'
+            # Only take zinc columns
+            if inv_c not in df.columns:
+                # fallback: try "库存" as generic column
+                inv_c = '库存'
+                reg_c = '注册' if '注册' in df.columns else None
+                cancel_c = '注销' if '注销' in df.columns else None
+            zn_df = df[[inv_c]].copy()
+            zn_df = zn_df[zn_df[inv_c].notna()]
             fallback['lme_inventory'] = [
-                {"date": str(r[date_c])[:10], "value": float(r[inv_c])} for _, r in ni_df.iterrows()
+                {"date": str(r['日期'])[:10], "value": float(r[inv_c])} for _, r in zn_df.iterrows()
             ]
-            fallback['lme_registered'] = [
-                {"date": str(r[date_c])[:10], "value": float(r[reg_c])} for _, r in ni_df.iterrows() if pd.notna(r[reg_c])
-            ]
-            fallback['lme_cancelled'] = [
-                {"date": str(r[date_c])[:10], "value": float(r[cancel_c])} for _, r in ni_df.iterrows() if pd.notna(r[cancel_c])
-            ]
-            print(f"    A1 LME inventory: {len(fallback['lme_inventory'])} points, last={ni_df.iloc[-1][inv_c]}")
+            if reg_c and reg_c in df.columns:
+                fallback['lme_registered'] = [
+                    {"date": str(r['日期'])[:10], "value": float(r[reg_c])} for _, r in zn_df.iterrows() if pd.notna(r[reg_c])
+                ]
+            if cancel_c and cancel_c in df.columns:
+                fallback['lme_cancelled'] = [
+                    {"date": str(r['日期'])[:10], "value": float(r[cancel_c])} for _, r in zn_df.iterrows() if pd.notna(r[cancel_c])
+                ]
+            print(f"    A1 LME inventory: {len(fallback['lme_inventory'])} points, last={zn_df.iloc[-1][inv_c]}")
         except Exception as e:
             print(f"    A1 LME inventory failed: {e}")
 
-        # ── B5: China inventory (futures_inventory_em) ──
+        # ── B5: China inventory (futures_inventory_em) — 统一转成万吨 ──
         try:
-            df = ak.futures_inventory_em(symbol="镍")
+            df = ak.futures_inventory_em(symbol="锌")
             date_c = '日期'
             inv_c = '库存'
-            fallback['china_inv_18'] = [
-                {"date": str(r[date_c])[:10], "value": float(r[inv_c])} for _, r in df.iterrows()
+            fallback['china_inv'] = [
+                {"date": str(r[date_c])[:10], "value": round(float(r[inv_c]) / 10000, 3)} for _, r in df.iterrows()
             ]
-            fallback['china_inv_27'] = fallback['china_inv_18'].copy()
-            print(f"    B5 China inventory: {len(fallback['china_inv_18'])} points, last={df.iloc[-1][inv_c]}")
+            print(f"    B5 China inventory: {len(fallback['china_inv'])} points (万吨), last={fallback['china_inv'][-1]['value'] if fallback['china_inv'] else '-'}")
         except Exception as e:
             print(f"    B5 China inventory failed: {e}")
 
         # ── LME inventory weekly + price from futures_inventory_99 ──
         try:
-            df = ak.futures_inventory_99(symbol="镍")
+            df = ak.futures_inventory_99(symbol="锌")
             # This gives weekly data with price
             if '收盘价' in df.columns:
-                fallback['lme_ni_settle'] = [
+                fallback['lme_zn_settle'] = [
                     {"date": str(r['日期'])[:10], "value": float(r['收盘价'])} for _, r in df.iterrows()
                 ]
-                print(f"    B2 LME price (weekly): {len(fallback['lme_ni_settle'])} points")
+                print(f"    B2 LME price (weekly): {len(fallback['lme_zn_settle'])} points")
         except Exception as e:
             print(f"    B2 LME price fallback failed: {e}")
 
@@ -397,7 +414,7 @@ def akshare_fallback():
         # ── Stainless steel cold rolling (B14) ──
         # Not directly available via akshare, skip
 
-        # ── Nickel sulfate price (B10) ──
+        # ── zinc sulfate price (B10) ──
         # Not directly available via akshare, skip
 
         # ── Indonesia production (B8/B9) ──
@@ -405,13 +422,13 @@ def akshare_fallback():
 
         # ── Import window / ratio (A2, B4) ──
         # Calculate from SHFE/LME prices if both available
-        if 'shfe_ni_settle' in fallback and 'lme_ni_settle' in fallback:
+        if 'shfe_zn_settle' in fallback and 'lme_zn_settle' in fallback:
             # Rough ratio: SHFE / (LME * USDCNY)
             # Use approximate USDCNY rate
             usdcny = 7.25
-            shfe_dates = {p['date']: p['value'] for p in fallback['shfe_ni_settle']}
+            shfe_dates = {p['date']: p['value'] for p in fallback['shfe_zn_settle']}
             fallback['shfe_lme_ratio'] = []
-            for p in fallback['lme_ni_settle']:
+            for p in fallback['lme_zn_settle']:
                 d = p['date']
                 if d in shfe_dates:
                     ratio = shfe_dates[d] / (p['value'] * usdcny) if p['value'] > 0 else None
@@ -433,7 +450,7 @@ def fetch_news():
     """统一 scorer v2 打分: Zhiji/补充/cache/DB/akshare 全路径走 scorer_v2.build_entry
     返回结构: title/body/source/time/level/score/url/direction/relevant/contradictions/matched_terms"""
     items = []
-    _DB_PATH = '/home/ubuntu/analysis/nickel_v1.db'
+    _DB_PATH = '/home/ubuntu/analysis/zinc_v1.db'
     _NEWS_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'news_cache.json')
     _SOURCE_MAP = {"jin10": "金十", "cls": "财联社", "sina": "新浪", "smm": "上海有色网", "x": "X"}
 
@@ -445,10 +462,10 @@ def fetch_news():
             return
         items.append(scorer_v2.build_entry(title, content, source, ts, url))
 
-    # 0. 优先从 Zhiji 讯服务拉取镍相关实时新闻（最新、最全）
+    # 0. 优先从 Zhiji 讯服务拉取锌相关实时新闻（最新、最全）
     try:
         print("  Fetching news from Zhiji 讯服务...")
-        news_url = f"{NEWS_BASE}/search?q={urllib.parse.quote('镍')}&hours=48&limit=30&source=all"
+        news_url = f"{NEWS_BASE}/search?q={urllib.parse.quote('锌')}&hours=48&limit=30&source=all"
         zhiji_news = api_get(news_url, "X-News-Key", NEWS_KEY)
         if zhiji_news and isinstance(zhiji_news, dict) and "items" in zhiji_news:
             for n in zhiji_news["items"]:
@@ -456,15 +473,15 @@ def fetch_news():
                 title = n.get("title", "")[:80]
                 _add(title, content, _SOURCE_MAP.get(n.get("source", "all"), n.get("source", "all")),
                      n.get("time", ""), n.get("url", ""))
-            print(f"  Zhiji 讯服务: got {len(items)} news items for 镍")
+            print(f"  Zhiji 讯服务: got {len(items)} news items for 锌")
     except Exception as e:
         print(f"  Zhiji 讯服务 fetch failed: {e}")
 
-    # 0b. 补充拉取不锈钢/镍铁相关新闻
+    # 0b. 补充拉取锌产业链相关新闻 (锌精矿/镀锌/合金/库存)
     if len(items) < 15:
         try:
             seen = {it.get("title") for it in items}
-            for keyword in ["镍铁", "不锈钢", "精炼镍", "镍豆"]:
+            for keyword in ["锌精矿", "镀锌板", "锌合金", "锌锭库存", "锌矿加工费"]:
                 if len(items) >= 25:
                     break
                 news_url = f"{NEWS_BASE}/search?q={urllib.parse.quote(keyword)}&hours=48&limit=15&source=all"
@@ -507,7 +524,7 @@ def fetch_news():
             c = conn.cursor()
             c.execute('''
                 SELECT date, content, tier, source
-                FROM news_nickel_scored
+                FROM news_zinc_scored
                 WHERE tier IN ('A', 'B')
                 ORDER BY date DESC
                 LIMIT 30
@@ -537,7 +554,7 @@ def fetch_news():
     if len(items) < 20:
         try:
             import akshare as ak
-            df = ak.futures_news_shmet(symbol="镍")
+            df = ak.futures_news_shmet(symbol="锌")
             seen_titles = {it.get('title') for it in items}
             for _, r in df.iterrows():
                 ts = str(r.get("发布时间",""))[:19]
@@ -564,9 +581,9 @@ def fetch_news():
 
     if not items:
         items = [
-            {"title":"LME镍库存动态变化","body":"","source":"SMM","time":"今日","level":"B","score":0,
+            {"title":"LME锌库存动态变化","body":"","source":"SMM","time":"今日","level":"B","score":0,
              "url":"","direction":None,"relevant":True,"contradictions":{},"matched_terms":[]},
-            {"title":"国内精炼镍冶炼利润持续收窄","body":"","source":"Mysteel","time":"今日","level":"B","score":0,
+            {"title":"国内精炼锌冶炼利润持续收窄","body":"","source":"Mysteel","time":"今日","level":"B","score":0,
              "url":"","direction":None,"relevant":True,"contradictions":{},"matched_terms":[]},
         ]
     return items
@@ -577,45 +594,56 @@ def gen_analysis(charts):
     lme = last_val(charts.get("B2_lme_price",[]))
     lme_inv = last_val(charts.get("A1_lme_inventory",{}).get("inventory",[]))
     inv18 = last_val(charts.get("B5_china_inventory",{}).get("inv_18",[]))
-    inv27 = last_val(charts.get("B5_china_inventory",{}).get("inv_27",[]))
-    bean = last_val(charts.get("B6_bean_inventory",[]))
-    profit = last_val(charts.get("B7_smelting_profit",[]))
+    # B6槽位=锌精矿TC(元/吨·湿法), B7=进口盈亏(元/吨, 负值=亏损)
+    tc = last_val(charts.get("B6_bean_inventory",[]))
+    import_pft = last_val(charts.get("B7_smelting_profit",[]))
     oi = last_val(charts.get("B3_shfe_oi",[]))
-    indo_rate = last_val(charts.get("B9_indonesia",{}).get("indonesia_rate",[]))
+    # B9槽位: 镀锌板周产量(万吨) / 表观消费(万吨/月) / 锌合金开工率(%)
+    galv = last_val(charts.get("B9_indonesia",{}).get("indonesia_prod",[]))
+    alloy_rate = last_val(charts.get("B9_indonesia",{}).get("indonesia_rate",[]))
     china_prod = last_val(charts.get("B8_china_production",{}).get("chinese_prod",[]))
     app_cons = last_val(charts.get("B12_apparent_consumption",[]))
-    stainless = last_val(charts.get("B14_stainless",{}).get("cold_rolling",[]))
+    premium = last_val(charts.get("B14_stainless",{}).get("cold_rolling",[]))
+    ratio = last_val(charts.get("B4_ratio",[]))
     fundamentals = []
-    if shfe: fundamentals.append(f"SHFE {shfe}元/吨")
-    if lme: fundamentals.append(f"LME {lme}美元/吨")
+    if shfe: fundamentals.append(f"沪锌 {shfe}元/吨")
+    if lme: fundamentals.append(f"LME锌 {lme}美元/吨")
     if lme_inv: fundamentals.append(f"LME库存 {lme_inv}吨")
-    if inv18: fundamentals.append(f"国内18家 {inv18}吨")
-    if inv27: fundamentals.append(f"国内27家 {inv27}吨")
-    if bean: fundamentals.append(f"镍豆库存 {bean}吨")
-    if profit is not None: fundamentals.append(f"冶炼利润 {profit}元/吨")
-    if indo_rate: fundamentals.append(f"印尼开工率 {indo_rate}%")
+    if inv18: fundamentals.append(f"国内8省库存 {inv18}万吨")
+    if tc is not None: fundamentals.append(f"进口锌精矿TC {tc}美元/干吨")
+    if import_pft is not None: fundamentals.append(f"锌锭进口盈亏 {import_pft}元/吨")
+    if ratio: fundamentals.append(f"沪伦比值 {ratio}")
+    if galv: fundamentals.append(f"镀锌板周产量 {galv}万吨")
+    if alloy_rate: fundamentals.append(f"锌合金开工率 {alloy_rate}%")
     if oi: fundamentals.append(f"SHFE持仓 {oi}手")
-    if china_prod: fundamentals.append(f"国内产量 {china_prod}吨/月")
-    if app_cons: fundamentals.append(f"表观消费 {app_cons}吨/月")
-    if stainless: fundamentals.append(f"不锈钢排产 {stainless}吨")
+    if china_prod: fundamentals.append(f"精炼锌月产量 {china_prod}万吨")
+    if app_cons: fundamentals.append(f"表观消费 {app_cons}万吨/月")
+    if premium is not None: fundamentals.append(f"广东0#锌锭升贴水 {premium}元/吨")
     bull, bear = [], []
-    # 供给端
-    if profit is not None and profit < 0: bull.append(f"冶炼利润深度亏损{profit}元/吨，减产预期强烈")
-    elif profit is not None and profit < 5000: bull.append(f"冶炼利润压缩至{profit}元/吨，减产预期")
-    if lme_inv and lme_inv < 280000: bull.append(f"LME库存仅{lme_inv}吨，偏低")
-    if inv18 and inv18 < 8000: bull.append(f"国内库存{inv18}吨，低库存支撑")
-    if bean and bean < 1000: bull.append(f"镍豆库存仅{bean}吨，低成本替代紧缺")
+    # 矿端 (锌核心矛盾: 进口TC下行→冶炼亏损→减产预期; 进口TC单位=美元/干吨)
+    if tc is not None and tc < 0: bull.append(f"进口锌精矿TC已跌至{tc}美元/干吨(负值)，矿端极度紧张，冶炼亏损减产预期强烈")
+    elif tc is not None and tc < 100: bull.append(f"进口锌精矿TC仅{tc}美元/干吨，矿端紧张，冶炼利润持续压缩")
+    # 库存端 (国内8省库存单位=万吨, 正常区间约18~26)
+    if lme_inv and lme_inv < 120000: bull.append(f"LME库存仅{lme_inv}吨，全球低库存")
+    if lme_inv and 120000 <= lme_inv < 280000: bull.append(f"LME库存{lme_inv}吨偏低，支撑价格")
+    if inv18 and inv18 < 18: bull.append(f"国内8省库存{inv18}万吨，社库偏低支撑价格")
+    if import_pft is not None and import_pft < -3000: bull.append(f"锌锭进口盈亏{import_pft}元/吨，进口窗口关闭，海外货源难流入")
+    if premium is not None and premium > 100: bull.append(f"广东0#锌锭升贴水{premium}元/吨，国内现货升水走扩，需求回暖")
     # 需求端
-    if oi and oi > 150000: bull.append(f"持仓{oi}手，资金关注度高")
-    if china_prod and app_cons and app_cons > china_prod * 1.05: bull.append(f"表观消费{app_cons}吨>产量{china_prod}吨，供需缺口")
+    if galv and galv > 120: bull.append(f"镀锌板周产量{galv}万吨偏高，建材/镀锌需求旺盛(占锌消费6成以上)")
+    if alloy_rate and alloy_rate > 55: bull.append(f"锌合金开工率{alloy_rate}%偏高，压铸/五金需求尚可")
+    if china_prod and app_cons and app_cons > china_prod: bull.append(f"表观消费{app_cons}万吨/月>产量{china_prod}万吨/月，供需缺口")
+    if oi and oi > 280000: bull.append(f"SHFE持仓{oi}手，资金关注度高")
     # 利空
-    if indo_rate and indo_rate > 85: bear.append(f"印尼开工率{indo_rate}%，供应扩张")
-    if profit is not None and profit > 20000: bear.append(f"冶炼利润{profit}元/吨，产能释放充足")
-    if lme_inv and lme_inv > 350000: bear.append(f"LME库存{lme_inv}吨，累库压力大")
-    if inv18 and inv18 > 15000: bear.append(f"国内库存{inv18}吨，压制价格")
-    if bean and bean > 10000: bear.append(f"镍豆库存{bean}吨，低成本替代充足")
-    if china_prod and app_cons and app_cons < china_prod * 0.95: bear.append(f"表观消费{app_cons}吨<产量{china_prod}吨，供过于求")
-    if stainless and stainless < 60: bear.append(f"不锈钢排产仅{stainless}吨，需求疲软")
+    if tc is not None and tc > 250: bear.append(f"进口锌精矿TC回升至{tc}美元/干吨，矿端宽松，冶炼利润修复")
+    if import_pft is not None and import_pft > 2000: bear.append(f"锌锭进口盈利{import_pft}元/吨，进口窗口大开，海外货源流入")
+    if lme_inv and lme_inv > 250000: bear.append(f"LME库存{lme_inv}吨，累库压力大")
+    if inv18 and inv18 > 26: bear.append(f"国内8省库存{inv18}万吨，社库高位压制价格")
+    if premium is not None and premium < -200: bear.append(f"广东0#锌锭贴水{premium}元/吨，国内现货疲弱")
+    if galv and galv < 105: bear.append(f"镀锌板周产量仅{galv}万吨，地产/建材用锌需求疲软")
+    if alloy_rate and alloy_rate < 30: bear.append(f"锌合金开工率仅{alloy_rate}%，下游压铸需求偏弱")
+    if china_prod and app_cons and app_cons < china_prod * 0.95: bear.append(f"表观消费{app_cons}万吨/月<产量{china_prod}万吨/月，供过于求")
+    if ratio and ratio < 0.96: bear.append(f"沪伦比值{ratio}，进口窗口大开，海外货源流入")
     if not bull: bull.append("暂无明确利多驱动")
     if not bear: bear.append("暂无明确利空驱动")
     # 规则方向
@@ -655,7 +683,7 @@ def gen_ai(charts, news, macro=None):
     # ── 调用 AI：zsun 主用 → DashScope 备用 ──
     def call_ai(url, key, model):
         payload = {"model": model, "messages": [
-            {"role":"system","content":"你是专业镍期货分析师，输出结构化研报。"},
+            {"role":"system","content":"你是专业锌期货分析师，输出结构化研报。"},
             {"role":"user","content":prompt}
         ], "max_tokens":4096, "temperature":0.7}
         req = urllib.request.Request(url, data=json.dumps(payload).encode(),
@@ -700,7 +728,7 @@ def gen_ai(charts, news, macro=None):
 
 # ── Main ──
 def load_prompt_data():
-    """Load prompt evaluation data from nickel_prompt_eval"""
+    """Load prompt evaluation data from zinc_prompt_eval"""
     eval_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'prompt_eval_data')
     results_file = os.path.join(eval_dir, 'results_20260806_105907.json')
     try:
@@ -775,14 +803,26 @@ def main():
     now = datetime.now()
     start = (now - timedelta(days=365)).strftime("%Y-%m-%d")
     end = now.strftime("%Y-%m-%d")
-    unique_ids = {"lme_inventory","lme_registered","lme_cancelled","shfe_lme_ratio","magma_discount",
-        "indonesia_npi_rate","nickel_bean_price","shfe_ni_settle","lme_ni_settle","shfe_oi",
-        "ref_profit","china_inv_18","china_inv_27","bean_inv_18","indonesia_ref_prod",
-        "indonesia_ref_cap","indonesia_ref_rate","chinese_ref_prod","ni_apparent_cons",
-        "lme_outflow","lme_inflow","lme_sulfate_price",
-        # Added: 资金面 + 需求侧
+    unique_ids = {
+        # 价格 (kline优先, 料API兜底)
+        "shfe_zn_settle","lme_zn_settle","shfe_oi",
+        # LME库存
+        "lme_inventory","lme_registered","lme_cancelled",
+        # 国内库存
+        "china_inv",
+        # 矿端 (锌核心矛盾: 锌精矿TC)
+        "zinc_conc_tc","zinc_conc_tc_high",
+        # 供给
+        "chinese_prod","chinese_rate",
+        # 需求
+        "galvanized_prod","zinc_alloy_rate","apparent_cons",
+        # 进口
+        "import_profit_tax","import_profit_notax","import_ratio_tax","import_ratio_notax",
+        # 升贴水
+        "guangdong_premium","shanghai_premium",
+        # 资金面
         "lme_position","lme_fund_long","lme_commercial_long","lme_commercial_short",
-        "stainless_cold_rolling","chinese_ref_cap"}
+    }
 
     # ── Load previous data.json as fallback for failed API calls ──
     prev_charts = {}
@@ -803,14 +843,16 @@ def main():
     kline_data = []
     if GUAN_KEY:
         try:
-            print("Fetching NI kline from Guan API (365 days)...")
-            kline_data = fetch_kline("NI", "D", 365)
+            print("Fetching ZN kline from Guan API (365 days)...")
+            kline_data = fetch_kline("ZN", "D", 365)
             if kline_data:
                 print(f"  Guan kline: got {len(kline_data)} data points")
-                # Map kline fields to our series IDs
-                results["shfe_ni_settle"] = kline_data  # Use settle/close price
-                # Try to extract OI from kline if available
-                # Note: kline may have open/high/low/close/volume/oi fields
+                # K线结算价作为沪锌价格主源
+                results["shfe_zn_settle"] = kline_data
+                # K线也带持仓量(如有)
+                oi_from_kline = [p for p in kline_data if p.get("oi")]
+                if oi_from_kline:
+                    results["shfe_oi"] = oi_from_kline
         except Exception as e:
             print(f"  Guan kline FAIL: {e}")
     
@@ -842,33 +884,53 @@ def main():
         empty_sids = [sid for sid in unique_ids if sid not in results or not results.get(sid)]
 
     # ── kline fallback: fetch price/OI data from Guan API if still missing ──
-    kline_missing = [sid for sid in ["shfe_ni_settle", "shfe_oi"] if not results.get(sid)]
+    kline_missing = [sid for sid in ["shfe_zn_settle", "shfe_oi"] if not results.get(sid)]
     if kline_missing:
         try:
             print(f"  Fetching kline fallback for: {kline_missing}")
-            kline_data = fetch_kline("NI", "D", 365)
+            kline_data = fetch_kline("ZN", "D", 365)
             if kline_data:
-                results["shfe_ni_settle"] = kline_data
+                results["shfe_zn_settle"] = kline_data
+                oi_k = [p for p in kline_data if p.get("oi")]
+                if oi_k and not results.get("shfe_oi"):
+                    results["shfe_oi"] = oi_k
                 print(f"  Kline fallback: got {len(kline_data)} data points")
         except Exception as e:
             print(f"  Kline fallback failed: {e}")
 
+    # ── Derived: SHFE/LME 内外盘比价 (进口窗口) ──
+    if results.get("shfe_zn_settle") and results.get("lme_zn_settle"):
+        shfe_map = {p["date"]: p["value"] for p in results["shfe_zn_settle"]}
+        ratio = []
+        for p in results["lme_zn_settle"]:
+            d = p["date"]
+            if d in shfe_map and p["value"] and p["value"] > 0:
+                r = shfe_map[d] / (p["value"] * 7.25)
+                if r:
+                    ratio.append({"date": d, "value": round(r, 3)})
+        ratio.sort(key=lambda x: x["date"])
+        if ratio:
+            results["shfe_lme_ratio"] = ratio
+            print(f"  Derived SHFE/LME ratio: {len(ratio)} pts, last={ratio[-1]['value']}")
+
     # ── Merge remaining empty series from previous data ──
     mapping = {
         "lme_inventory":"A1_lme_inventory:inventory","lme_registered":"A1_lme_inventory:registered",
-        "lme_cancelled":"A1_lme_inventory:cancelled","shfe_lme_ratio":"A4_ratio",
-        "magma_discount":"A2_import_window:magma_discount","indonesia_npi_rate":"A2_import_window:indonesia_npi_rate",
-        "nickel_bean_price":"A3_substitution:nickel_bean","shfe_ni_settle":"A3_substitution:shfe_settle",
-        "lme_ni_settle":"B2_lme_price","shfe_oi":"B3_shfe_oi",
-        "ref_profit":"B7_smelting_profit","china_inv_18":"B5_china_inventory:inv_18",
-        "china_inv_27":"B5_china_inventory:inv_27","bean_inv_18":"B6_bean_inventory",
-        "indonesia_ref_prod":"B9_indonesia:indonesia_prod","indonesia_ref_cap":"B9_indonesia:indonesia_cap",
-        "indonesia_ref_rate":"B9_indonesia:indonesia_rate","chinese_ref_prod":"B8_china_production:chinese_prod",
-        "chinese_ref_cap":"B8_china_production:chinese_cap","ni_apparent_cons":"B12_apparent_consumption",
-        "lme_outflow":"B11_lme_flow:outflow","lme_inflow":"B11_lme_flow:inflow",
-        "lme_sulfate_price":"B10_sulfate_price","lme_position":"B13_lme_funding:position",
-        "lme_fund_long":"B13_lme_funding:fund_long","lme_commercial_long":"B13_lme_funding:comm_long",
-        "lme_commercial_short":"B13_lme_funding:comm_short","stainless_cold_rolling":"B14_stainless:cold_rolling",
+        "lme_cancelled":"A1_lme_inventory:cancelled","shfe_lme_ratio":"B4_ratio",
+        "import_profit_notax":"A2_import_window:magma_discount",
+        "import_ratio_notax":"A2_import_window:indonesia_npi_rate",
+        "zinc_conc_tc":"A3_substitution:zinc_bean","shfe_zn_settle":"A3_substitution:shfe_settle",
+        "lme_zn_settle":"B2_lme_price","shfe_oi":"B3_shfe_oi",
+        "import_profit_tax":"A4_smelting_pressure:profit","china_inv":"A4_smelting_pressure:inv_18",
+        "zinc_conc_tc":"B6_bean_inventory","import_profit_notax":"B7_smelting_profit",
+        "chinese_prod":"B8_china_production:chinese_prod","chinese_rate":"B8_china_production:chinese_cap",
+        "galvanized_prod":"B9_indonesia:indonesia_prod","apparent_cons":"B9_indonesia:indonesia_cap",
+        "zinc_alloy_rate":"B9_indonesia:indonesia_rate","apparent_cons":"B10_sulfate_price",
+        "lme_cancelled":"B11_lme_flow:outflow","lme_registered":"B11_lme_flow:inflow",
+        "apparent_cons":"B12_apparent_consumption",
+        "lme_position":"B13_lme_funding:position","lme_fund_long":"B13_lme_funding:fund_long",
+        "lme_commercial_long":"B13_lme_funding:comm_long","lme_commercial_short":"B13_lme_funding:comm_short",
+        "guangdong_premium":"B14_stainless:cold_rolling",
     }
     for sid in failed:
         m = mapping.get(sid, "")
@@ -884,36 +946,50 @@ def main():
                 print(f"  RESTORED {sid} from previous data.json ({len(prev_data)} points)")
                 failed.remove(sid)
 
-    # Assemble charts
+    # Assemble charts — 锌专属 18 图 (前端槽位名保持不变, 标题在 charts.js 锌化)
     charts = {
-        "A1_lme_inventory": {"inventory":results.get("lme_inventory"), "registered":results.get("lme_registered"), "cancelled":results.get("lme_cancelled")},
-        "A2_import_window": {"shfe_lme_ratio":results.get("shfe_lme_ratio"), "magma_discount":results.get("magma_discount"), "indonesia_npi_rate":results.get("indonesia_npi_rate")},
-        "A3_substitution": {"nickel_bean":results.get("nickel_bean_price"), "shfe_settle":results.get("shfe_ni_settle")},
-        "A4_smelting_pressure": {"profit":results.get("ref_profit"), "inv_18":results.get("china_inv_18"), "inv_27":results.get("china_inv_27"), "bean_inv":results.get("bean_inv_18")},
-        "B1_shfe_price": results.get("shfe_ni_settle"), "B2_lme_price": results.get("lme_ni_settle"),
+        # 价格
+        "B1_shfe_price": results.get("shfe_zn_settle"), "B2_lme_price": results.get("lme_zn_settle"),
         "B3_shfe_oi": results.get("shfe_oi"), "B4_ratio": results.get("shfe_lme_ratio"),
-        "B5_china_inventory": {"inv_18":results.get("china_inv_18"), "inv_27":results.get("china_inv_27")},
-        "B6_bean_inventory": results.get("bean_inv_18"), "B7_smelting_profit": results.get("ref_profit"),
-        "B8_china_production": {"chinese_prod":results.get("chinese_ref_prod"), "chinese_cap":results.get("chinese_ref_cap")},
-        "B9_indonesia": {"indonesia_prod":results.get("indonesia_ref_prod"), "indonesia_cap":results.get("indonesia_ref_cap"), "indonesia_rate":results.get("indonesia_ref_rate")},
-        "B10_sulfate_price": results.get("lme_sulfate_price"),
-        "B11_lme_flow": {"outflow":results.get("lme_outflow"), "inflow":results.get("lme_inflow")},
-        "B12_apparent_consumption": results.get("ni_apparent_cons"),
-        # Added: 资金面 + 需求侧
+        # LME库存
+        "A1_lme_inventory": {"inventory":results.get("lme_inventory"), "registered":results.get("lme_registered"), "cancelled":results.get("lme_cancelled")},
+        # 进口窗口: 沪伦比值 + 进口盈亏(元/吨) + 进口占比(%)
+        "A2_import_window": {"shfe_lme_ratio":results.get("shfe_lme_ratio"),
+            "magma_discount":results.get("import_profit_notax"), "indonesia_npi_rate":results.get("import_ratio_notax")},
+        # 矿端: 锌精矿TC (锌核心矛盾) + 沪锌价
+        "A3_substitution": {"zinc_bean":results.get("zinc_conc_tc"), "shfe_settle":results.get("shfe_zn_settle")},
+        # 冶炼压力: 进口成本(元/吨) + 国内库存
+        "A4_smelting_pressure": {"profit":results.get("import_profit_tax"), "inv_18":results.get("china_inv"), "inv_27":results.get("china_inv"), "bean_inv":[]},
+        # 国内库存
+        "B5_china_inventory": {"inv_18":results.get("china_inv"), "inv_27":results.get("china_inv")},
+        # 矿端TC + 进口盈亏
+        "B6_bean_inventory": results.get("zinc_conc_tc"), "B7_smelting_profit": results.get("import_profit_notax"),
+        # 供给: 精炼锌产量 + 产能利用率
+        "B8_china_production": {"chinese_prod":results.get("chinese_prod"), "chinese_cap":results.get("chinese_rate")},
+        # 需求: 镀锌板产量 + 表观消费 + 锌合金开工率
+        "B9_indonesia": {"indonesia_prod":results.get("galvanized_prod"), "indonesia_cap":results.get("apparent_cons"), "indonesia_rate":results.get("zinc_alloy_rate")},
+        # 表观消费
+        "B10_sulfate_price": results.get("apparent_cons"),
+        # LME流向: 注册仓单(入库) + 注销仓单(出库)
+        "B11_lme_flow": {"outflow":results.get("lme_cancelled"), "inflow":results.get("lme_registered")},
+        # 表观消费
+        "B12_apparent_consumption": results.get("apparent_cons"),
+        # 资金面
         "B13_lme_funding": {"position":results.get("lme_position"), "fund_long":results.get("lme_fund_long"),
             "comm_long":results.get("lme_commercial_long"), "comm_short":results.get("lme_commercial_short")},
-        "B14_stainless": {"cold_rolling":results.get("stainless_cold_rolling")},
+        # 现货升贴水: 广东0#锌锭升贴水
+        "B14_stainless": {"cold_rolling":results.get("guangdong_premium")},
     }
 
     # Realtime
     realtime = {}
     try:
         print("Fetching realtime quote...")
-        realtime = fetch_quote("NI")
+        realtime = fetch_quote("ZN")
     except Exception as e:
         print(f"  Realtime FAIL: {e}")
 
-    # News (相关性闸门: 过滤与镍无关的新闻, 与实时链路同标准)
+    # News (相关性闸门: 过滤与锌无关的新闻, 与实时链路同标准)
     print("Fetching news...")
     news = [n for n in fetch_news() if n.get("relevant", True)]
     news = news[:20]
@@ -947,11 +1023,11 @@ def main():
     cc = cross_check(analysis["rule_direction"], ai_dir, analysis["bull_logic"], analysis["bear_logic"], ai_text)
     print(f"Cross-check: rule={analysis['rule_direction']} vs AI={ai_dir} → {cc['note']}")
 
-    # Prompt evaluation data (from nickel_prompt_eval)
+    # Prompt evaluation data (from zinc_prompt_eval)
     prompt_data = load_prompt_data()
 
     # 当前 prompt 版本元数据（供前端展示）
-    from analyze import get_active_prompt_version, build_prompt_v2
+    from analyze_zn import get_active_prompt_version, build_prompt_v2
     active_ver = get_active_prompt_version()
     prompt_versions = {
         "active": active_ver,

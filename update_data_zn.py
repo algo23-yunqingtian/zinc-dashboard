@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Nickel dashboard data updater — runs locally on schedule.
-Updates data.json in nickel_gh_static/ with fresh data from Zhiji + akshare + AI.
+zinc dashboard data updater — runs locally on schedule.
+Updates data.json in zinc_gh_static/ with fresh data from Zhiji + akshare + AI.
 Also syncs to GitHub repo for GitHub Actions Pages.
 """
 import subprocess
@@ -10,7 +10,7 @@ import os
 from datetime import datetime
 
 # Set up environment
-SCRIPT_DIR = "/home/ubuntu/nickel_dashboard_gh"
+SCRIPT_DIR = "/home/ubuntu/zinc_dashboard_gh"
 VENV_PYTHON = "/home/ubuntu/unified_venv/bin/python3"
 ENV_FILE = os.path.join(SCRIPT_DIR, ".env")
 
@@ -21,16 +21,16 @@ for line in open(ENV_FILE):
         k, v = line.split("=", 1)
         os.environ.setdefault(k.strip(), v.strip())
 
-OUTPUT = "/home/ubuntu/nickel_gh_static/data.json"
+OUTPUT = "/home/ubuntu/zinc_gh_static/data.json"
 os.environ["OUTPUT"] = OUTPUT
 
 log = lambda msg: print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}", flush=True)
 
 def main():
-    log("Starting nickel data update...")
+    log("Starting zinc data update...")
     
-    # Run fetch_data.py with venv that has akshare
-    cmd = [VENV_PYTHON, os.path.join(SCRIPT_DIR, "fetch_data.py")]
+    # Run fetch_zn.py with venv that has akshare
+    cmd = [VENV_PYTHON, os.path.join(SCRIPT_DIR, "fetch_zn.py")]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=os.environ)
     
     if result.returncode != 0:
@@ -49,10 +49,10 @@ def main():
         import sqlite3, json, re, urllib.parse
         import sys as _sys
         _sys.path.insert(0, SCRIPT_DIR)
-        import scorer_v2
-        conn = sqlite3.connect('/home/ubuntu/analysis/nickel_v1.db')
+        import scorer_v2_zn as scorer_v2
+        conn = sqlite3.connect('/home/ubuntu/analysis/zinc_v1.db')
         c = conn.cursor()
-        c.execute('SELECT date, content, tier, source FROM news_nickel_scored WHERE tier IN (?, ?) ORDER BY date DESC LIMIT 60', ('A', 'B'))
+        c.execute('SELECT date, content, tier, source FROM news_zinc_scored WHERE tier IN (?, ?) ORDER BY date DESC LIMIT 60', ('A', 'B'))
         news_items = []
         seen_titles = set()
         for date, content, tier, source in c.fetchall():
@@ -100,8 +100,8 @@ def main():
             subprocess.run(
                 ["git", "commit", "-m", f"update data {datetime.now().strftime('%Y-%m-%d %H:%M')}"],
                 cwd=SCRIPT_DIR, capture_output=True, timeout=10,
-                env={**os.environ, "GIT_AUTHOR_NAME": "ni-bot", "GIT_AUTHOR_EMAIL": "ni-bot@github.com",
-                     "GIT_COMMITTER_NAME": "ni-bot", "GIT_COMMITTER_EMAIL": "ni-bot@github.com"}
+                env={**os.environ, "GIT_AUTHOR_NAME": "zn-bot", "GIT_AUTHOR_EMAIL": "zn-bot@github.com",
+                     "GIT_COMMITTER_NAME": "zn-bot", "GIT_COMMITTER_EMAIL": "zn-bot@github.com"}
             )
             # Push in background (don't block)
             subprocess.Popen(

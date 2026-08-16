@@ -1,4 +1,4 @@
-# 镍看板协作规则（v1.0 - 2026-08-10）
+# 锌看板协作规则（v1.0 - 2026-08-10）
 
 ## 核心原则
 
@@ -9,13 +9,13 @@
 ## 唯一工作目录
 
 ```
-/home/ubuntu/nickel_dashboard_gh/    ← 唯一仓库
+/home/ubuntu/zinc_dashboard_gh/    ← 唯一仓库
 ```
 
 **其他目录已废弃**：
-- `/home/ubuntu/nickel_dashboard/` — 旧版 Flask 看板，已弃用
-- `/home/ubuntu/nickel_prompt_eval/` — Prompt 评估工具，数据已集成到 data.json
-- `/home/ubuntu/analysis/nickel_dashboard/` — 旧 HTML，已弃用
+- `/home/ubuntu/zinc_dashboard/` — 旧版 Flask 看板，已弃用
+- `/home/ubuntu/zinc_prompt_eval/` — Prompt 评估工具，数据已集成到 data.json
+- `/home/ubuntu/analysis/zinc_dashboard/` — 旧 HTML，已弃用
 
 ## 文件分工（严格遵守）
 
@@ -50,8 +50,8 @@
 
 | 版本 | 地址 | 说明 |
 |---|---|---|
-| 服务器版（主） | http://124.221.113.37:8766/nickel-gh/ | 实时 AI |
-| GitHub Pages | https://algo23-yunqingtian.github.io/nickel-dashboard/ | 缓存 AI |
+| 服务器版（主） | http://124.221.113.37:8766/zinc-gh/ | 实时 AI |
+| GitHub Pages | https://algo23-yunqingtian.github.io/zinc-dashboard/ | 缓存 AI |
 
 ## 当前版本状态
 

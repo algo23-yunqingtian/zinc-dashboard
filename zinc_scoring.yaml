@@ -1,5 +1,5 @@
 symbol: Ni
-symbol_cn: 镍
+symbol_cn: 锌
 category: 有色
 version: '3.0'
 generated: '2026-08-11'
@@ -9,38 +9,38 @@ core_indicators:
 - 精炼费(LME RB) - 供给锚, 领先4-8周
 - 不锈钢冷轧排产 - 需求锚, 领先2-4周
 - SHFE+LME库存 - 库存锚, 同步验证
-- 印尼镍豆港口库存 - 隐性供给锚, 领先2-4周
+- 印尼锌豆港口库存 - 隐性供给锚, 领先2-4周
 - SHFE/LME比价 - 价格信号, 领先1-2周
 
 # ═══════════════════════════════════════════
-# 矛盾权重映射 (对应 nickel_frame.md 中的核心矛盾表)
+# 矛盾权重映射 (对应 zinc_frame.md 中的核心矛盾表)
 # 5星=最核心矛盾, 1星=边缘
 # ═══════════════════════════════════════════
 contradictions:
   lme_supply_tight:
-    name: "LME库存 vs 精炼镍供需"
+    name: "LME库存 vs 精炼锌供需"
     weight: 5
     description: "LME库存持续变化是价格敏感指标，库存下降=供应紧"
   indonesia_supply:
-    name: "印尼镍供应弹性"
+    name: "印尼锌供应弹性"
     weight: 5
-    description: "印尼占全球镍供应50%+，HPAL扩产 vs 出口政策"
+    description: "印尼占全球锌供应50%+，HPAL扩产 vs 出口政策"
   battery_vs_stainless:
-    name: "电池镍 vs 不锈钢镍分化"
+    name: "电池锌 vs 不锈钢锌分化"
     weight: 4
     description: "两种需求增长逻辑不同，可能导致价格分歧"
-  nickel_beans_substitution:
-    name: "国内纯镍豆替代效应"
+  zinc_beans_substitution:
+    name: "国内纯锌豆替代效应"
     weight: 4
-    description: "镍豆低价冲击电解镍定价，国内冶炼利润压缩"
+    description: "锌豆低价冲击电解锌定价，国内冶炼利润压缩"
   price_ratio:
-    name: "沪镍 vs LME镍比价"
+    name: "沪锌 vs LME锌比价"
     weight: 3
     description: "进口窗口开关影响国内供应节奏"
   battery_tech_route:
     name: "三元电池技术路线争议"
     weight: 3
-    description: "LFP vs 三元影响中长期电池镍需求预期"
+    description: "LFP vs 三元影响中长期电池锌需求预期"
   stainless_cyclical:
     name: "不锈钢消费周期性"
     weight: 3
@@ -50,14 +50,14 @@ contradictions:
 # 相关性闸门 (relevance gate)
 # 标题+正文必须命中 core_terms 中任一词，
 # 或命中 combo.any 且同时命中 combo.with_any 中任一词；
-# 否则评分上限 cap_score（视为非镍新闻，降出榜单）
-# 目的: 防止"哥伦比亚强震"这类与镍无关的新闻借
+# 否则评分上限 cap_score（视为非锌新闻，降出榜单）
+# 目的: 防止"哥伦比亚强震"这类与锌无关的新闻借
 #       disruption 词组(地震)虚高得分霸榜
 # ═══════════════════════════════════════════
 relevance:
   cap_score: 5
   core_terms:
-  - 镍
+  - 锌
   - 不锈钢
   - NPI
   - 青山
@@ -122,9 +122,9 @@ tiers:
       - 华友
       - Centaurus
 
-    - name: china_nickel
+    - name: china_zinc
       weight: 12
-      contradiction: nickel_beans_substitution
+      contradiction: zinc_beans_substitution
       bias: bearish
       tags:
       - supply
@@ -138,11 +138,11 @@ tiers:
       - 北方稀土
       - 洛阳钼业
       - 寒锐
-      - 德龙镍业
+      - 德龙锌业
       - 青美娜
       - 新华都
 
-    - name: indonesia_nickel
+    - name: indonesia_zinc
       weight: 14
       contradiction: indonesia_supply
       bias: neutral
@@ -151,19 +151,19 @@ tiers:
       terms:
       - 印尼
       - RKAB
-      - nickel ore
-      - 红土镍矿
+      - zinc ore
+      - 红土锌矿
       - NPI
       - RKE
       - 高压酸浸
       - 华越
       - 华萃
       - 新鑫
-      - 东方镍业
+      - 东方锌业
       - 瑞诺
       - PT Antam
       - 印尼国有矿业
-      - 印尼镍矿出口
+      - 印尼锌矿出口
       - 印尼禁矿
       - 印尼出口税
       - 印尼禁矿令
@@ -215,7 +215,7 @@ tiers:
       - 太钢不锈
       - 青山不锈钢
 
-    - name: battery_nickel
+    - name: battery_zinc
       weight: 10
       contradiction: battery_vs_stainless
       bias: neutral
@@ -223,18 +223,18 @@ tiers:
       - demand
       - battery
       terms:
-      - 电池镍
-      - 硫酸镍
+      - 电池锌
+      - 硫酸锌
       - 三元材料
       - 三元正极
-      - 高镍
+      - 高锌
       - NCM811
       - 正极材料
       - 前驱体
-      - 镍钴锰
+      - 锌钴锰
       - LFP
       - 磷酸铁锂
-      - 电池级硫酸镍
+      - 电池级硫酸锌
 
     - name: institutions
       weight: 7
@@ -244,7 +244,7 @@ tiers:
       - policy
       terms:
       - ILZSG
-      - 国际镍研究小组
+      - 国际锌研究小组
       - INSG
       - 中国有色金属工业协会
       - 发改委
@@ -276,7 +276,7 @@ tiers:
 
     - name: cost_production
       weight: 8
-      contradiction: nickel_beans_substitution
+      contradiction: zinc_beans_substitution
       bias: neutral
       tags:
       - cost
@@ -311,7 +311,7 @@ tiers:
       - 注册仓单
       - 注销仓单
       - 仓单注销率
-      - 精炼镍库存
+      - 精炼锌库存
       - SHFE仓单
       - 社会库存
 
@@ -323,14 +323,14 @@ tiers:
       - price
       - ratio
       terms:
-      - 沪镍
-      - 伦镍
+      - 沪锌
+      - 伦锌
       - 比价
       - 进口窗口
       - 进口利润
       - 内外盘价差
-      - 镍豆升贴水
-      - 电解镍溢价
+      - 锌豆升贴水
+      - 电解锌溢价
 
   C:
     keywords:
@@ -385,9 +385,9 @@ negative_filters:
 - 结算价
 - 夜盘收盘
 - 夜盘开盘
-- 镍现货报价
-- 金川集团电解镍出厂
-- 镍钴中间品价格
+- 锌现货报价
+- 金川集团电解锌出厂
+- 锌钴中间品价格
 
 refresh:
   interval_days: 30
@@ -406,4 +406,4 @@ review_log:
 - date: '2026-08-16'
   action: unification_v3
   reviewer: agent
-  notes: "v3: 统一打分单一来源(scorer_v2.py)。新增 relevance 相关性闸门, 修复'哥伦比亚强震'类无关新闻借地震词虚高19分霸榜问题; 全部取数路径(fetch_data/fetch_nickel/analyze/update_data)统一走本配置"
+  notes: "v3: 统一打分单一来源(scorer_v2.py)。新增 relevance 相关性闸门, 修复'哥伦比亚强震'类无关新闻借地震词虚高19分霸榜问题; 全部取数路径(fetch_data/fetch_zinc/analyze/update_data)统一走本配置"

@@ -2,9 +2,9 @@
 
 ## 仓库信息
 
-- **URL**: https://github.com/algo23-yunqingtian/nickel-dashboard
-- **GitHub Pages**: https://algo23-yunqingtian.github.io/nickel-dashboard/
-- **服务器版（推荐）**: http://124.221.113.37:8766/nickel-gh/
+- **URL**: https://github.com/algo23-yunqingtian/zinc-dashboard
+- **GitHub Pages**: https://algo23-yunqingtian.github.io/zinc-dashboard/
+- **服务器版（推荐）**: http://124.221.113.37:8766/zinc-gh/
 - **默认分支**: `main`
 
 ## 两个 Agent 分工
@@ -19,13 +19,13 @@
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  用户浏览器                                                    │
-│  http://124.221.113.37:8766/nickel-gh/                      │
+│  http://124.221.113.37:8766/zinc-gh/                      │
 │  (Nginx 8766 反向代理)                                         │
 └──────────┬───────────────────────────────────────┬────────────┘
            │                                       │
     ┌──────▼────────┐                    ┌────────▼────────┐
     │  静态文件托管    │                    │  AI Proxy (8774)  │
-    │  nickel_gh_   │                    │  proxy.py        │
+    │  zinc_gh_   │                    │  proxy.py        │
     │  static/       │                    │  (Supervisor)    │
     │  index.html    │                    │                  │
     │  data.json     │                    └────────┬─────────┘
@@ -42,7 +42,7 @@ GitHub Actions (每30min)
 ## AI 实时解盘流程
 
 1. 用户打开看板 → `data.json` 加载，**先显示缓存的 AI 解盘**
-2. 前端 JS 从 `data.json` 提取最新数据 → POST 到 `/nickel-gh/api`
+2. 前端 JS 从 `data.json` 提取最新数据 → POST 到 `/zinc-gh/api`
 3. Nginx 转发到 `proxy.py` (8774) → 转发到 SiliconFlow
 4. 结果返回前端 → **替换缓存，显示"🟢 实时"时间戳**
 5. 如果调用失败 → 回退到缓存数据，显示"⚠️ 使用缓存"
@@ -67,11 +67,11 @@ GitHub Actions (每30min)
 ```
 
 ### 部署同步
-微信端 Agent 负责把 GitHub 上的文件同步到 `/home/ubuntu/nickel_gh_static/`：
+微信端 Agent 负责把 GitHub 上的文件同步到 `/home/ubuntu/zinc_gh_static/`：
 ```bash
-cp /home/ubuntu/nickel_dashboard_gh/index.html /home/ubuntu/nickel_gh_static/
-cp /home/ubuntu/nickel_dashboard_gh/static/* /home/ubuntu/nickel_gh_static/static/
-cp /home/ubuntu/nickel_dashboard_gh/data.json /home/ubuntu/nickel_gh_static/
+cp /home/ubuntu/zinc_dashboard_gh/index.html /home/ubuntu/zinc_gh_static/
+cp /home/ubuntu/zinc_dashboard_gh/static/* /home/ubuntu/zinc_gh_static/static/
+cp /home/ubuntu/zinc_dashboard_gh/data.json /home/ubuntu/zinc_gh_static/
 ```
 
 ### 数据管道
@@ -102,7 +102,7 @@ cp /home/ubuntu/nickel_dashboard_gh/data.json /home/ubuntu/nickel_gh_static/
 
 ```bash
 # Clone
-git clone https://github.com/algo23-yunqingtian/nickel-dashboard.git
+git clone https://github.com/algo23-yunqingtian/zinc-dashboard.git
 
 # Push
 git add -A && git commit -m "描述" && git push origin main

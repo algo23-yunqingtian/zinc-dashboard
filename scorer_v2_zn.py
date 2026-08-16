@@ -1,15 +1,15 @@
 """
-scorer_v2.py — 镍看板统一新闻打分模块 (唯一打分来源 / single source of truth)
+scorer_v2.py — 锌看板统一新闻打分模块 (唯一打分来源 / single source of truth)
 
 设计目标 (2026-08-16 统一化):
   1. 所有取数路径共用本模块打分, 禁止各自维护关键词/打分逻辑:
      - fetch_data.py   (GitHub Actions 主路径, 写 gh_static/data.json)
-     - fetch_nickel.py (本地定时刷新, commodity-dashboard + gh_static 两份)
+     - fetch_zinc.py (本地定时刷新, commodity-dashboard + gh_static 两份)
      - analyze.py      (8774 AI 实时解盘, 构建 prompt 的新闻)
      - update_data.py  (news_cache.json 导出)
   2. 评分算法 = keyword_engine scorer v2 (维度去重 + 矛盾权重 + 多空方向 + 交叉验证),
-     配置自包含于本仓库 nickel_scoring.yaml (GitHub Actions 无 /home/ubuntu 路径).
-  3. 相关性闸门 (relevance gate): 与镍无关的新闻 (如"哥伦比亚强震"命中地震词)
+     配置自包含于本仓库 zinc_scoring.yaml (GitHub Actions 无 /home/ubuntu 路径).
+  3. 相关性闸门 (relevance gate): 与锌无关的新闻 (如"哥伦比亚强震"命中地震词)
      评分上限压到 5 分, 降出榜单; 标题含品种名的保留.
 
 对外 API:
@@ -23,7 +23,7 @@ import os, re
 from collections import defaultdict
 
 _BASE = os.path.dirname(os.path.abspath(__file__))
-_YAML = os.path.join(_BASE, "nickel_scoring.yaml")
+_YAML = os.path.join(_BASE, "zinc_scoring.yaml")
 
 # 与 keyword_engine.GENERIC_NEGATIVE 同步 (本模块自包含, GH Actions 无外部依赖)
 GENERIC_NEGATIVE = [
@@ -101,7 +101,7 @@ def is_noise(text):
 
 
 def is_related(text, title=''):
-    """相关性闸门: 命中品种核心词或 印尼+镍产业词 组合"""
+    """相关性闸门: 命中品种核心词或 印尼+锌产业词 组合"""
     full = (title or '') + ' ' + (text or '')
     r = load_config()['relevance']
     if not r:
@@ -255,7 +255,7 @@ def score_news(content, title='', keywords=None,
     else:
         tier = 'C'
 
-    # 相关性闸门: 与镍无关 → 压分降级
+    # 相关性闸门: 与锌无关 → 压分降级
     if not relevant:
         cap = load_config()['relevance'].get('cap_score', 5)
         total = min(total, cap)

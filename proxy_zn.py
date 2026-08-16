@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-AI proxy for nickel dashboard — forwards browser AI requests to zsun AI.
+AI proxy for zinc dashboard — forwards browser AI requests to zsun AI.
 Prevents exposing API key in frontend JavaScript.
-Runs on port 8769.
+Runs on port 8775.
 """
 import os
 import json
@@ -27,7 +27,7 @@ ZSUN_MODEL = "Qwen36_35B"
 
 # Import analyze module
 try:
-    from analyze import analyze as run_analysis
+    from analyze_zn import analyze as run_analysis
 except ImportError:
     run_analysis = None
 
@@ -124,7 +124,7 @@ class AIProxyHandler(BaseHTTPRequestHandler):
                 self._respond(result, 500)
             else:
                 # 添加 prompt 版本信息
-                from analyze import get_active_prompt_version
+                from analyze_zn import get_active_prompt_version
                 active_ver = get_active_prompt_version()
                 result["prompt_version"] = {
                     "active": active_ver,
@@ -134,7 +134,7 @@ class AIProxyHandler(BaseHTTPRequestHandler):
                     ]
                 }
                 result["skill"] = {
-                    "name": "nickel-ai-analysis",
+                    "name": "zinc-ai-analysis",
                     "version": "3.0",
                     "model": result.get("model", ZSUN_MODEL),
                     "framework": "6步思维链",
@@ -153,7 +153,7 @@ class AIProxyHandler(BaseHTTPRequestHandler):
             self.rfile.read(content_length)
 
         try:
-            from analyze import build_prompt, build_prompt_v2, get_active_prompt_version, load_data, fetch_news, fetch_reports
+            from analyze_zn import build_prompt, build_prompt_v2, get_active_prompt_version, load_data, fetch_news, fetch_reports
             data = load_data()
             if not data:
                 self._respond({"error": "no data.json"}, 500)
@@ -181,7 +181,7 @@ class AIProxyHandler(BaseHTTPRequestHandler):
                     ]
                 },
                 "skill": {
-                    "name": "nickel-ai-analyzer",
+                    "name": "zinc-ai-analyzer",
                     "version": "P3",
                     "model": ZSUN_MODEL,
                     "framework": "6-step chain-of-thought",
@@ -203,7 +203,7 @@ class AIProxyHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    port = int(os.environ.get("PORT", 8769))
+    port = int(os.environ.get("PORT", 8775))
     server = HTTPServer(("0.0.0.0", port), AIProxyHandler)
     print(f"AI proxy listening on port {port}")
     server.serve_forever()

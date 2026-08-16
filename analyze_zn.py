@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Nickel real-time AI analyzer module.
+zinc real-time AI analyzer module.
 Reads data.json + fetches news -> builds prompt -> calls AI -> returns analysis.
 """
 import json, os, re, sys, sqlite3, urllib.request, urllib.parse, socket
@@ -9,7 +9,7 @@ from datetime import datetime
 # 统一新闻打分模块 (scorer v2 + 相关性闸门)
 if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import scorer_v2
+import scorer_v2_zn as scorer_v2
 
 # Force IPv4 — dashscope IPv6 endpoint times out
 _original_getaddrinfo = socket.getaddrinfo
@@ -20,8 +20,8 @@ socket.getaddrinfo = _ipv4_only_getaddrinfo
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_JSON = os.path.join(BASE_DIR, "data.json")
-GH_STATIC_DATA = "/home/ubuntu/nickel_gh_static/data.json"
-NICKEL_DB = "/home/ubuntu/analysis/nickel_v1.db"
+GH_STATIC_DATA = "/home/ubuntu/zinc_gh_static/data.json"
+ZINC_DB = "/home/ubuntu/analysis/zinc_v1.db"
 
 DASHSCOPE_URL = "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions"
 DASHSCOPE_MODEL = "qwen3.7-max"
@@ -44,23 +44,23 @@ def load_data():
 # 低优先级噪音：收盘/开盘/报价/技术面总结（基本面无价值）
 _EXCLUDE_NOISE = ['SHFE夜盘收盘','LME夜盘收盘','SHFE最新','LME库存','LME注销仓单',
     'LME现货结算','SHFE.*仓单','上期所基本金属仓单','LME金属技术策略',
-    'SHFE夜盘开盘','SHFE开盘_基本','SHFE收盘_基本','本周均价','镍现货报价',
-    '金川集团电解镍出厂','镍钴中间品价格',
+    'SHFE夜盘开盘','SHFE开盘_基本','SHFE收盘_基本','本周均价','锌现货报价',
+    '金川集团电解锌出厂','锌钴中间品价格',
     # 盘后走势总结/技术面分析（与基本面关系极小）
     '收盘总结','走势总结','盘后总结','日度回顾','周度回顾','月度回顾',
     '技术面','技术形态','均线','MACD','KDJ','RSI','布林','金叉','死叉',
     '支撑位','压力位','突破','回落','反弹','震荡整理','多空博弈']
-# 高权重关键词（印尼政策/配额等，历史新闻也要保留）
-_HIGH_WEIGHT_KW = ['印尼','RKAB','配额','出口税','出口政策','禁矿令','NPI税率',
-    '罢工','停产','事故','制裁','关税','海关','环保督查','限产','产能']
+# 高权重关键词（锌产业链核心事件：矿端/冶炼/政策）
+_HIGH_WEIGHT_KW = ['锌精矿','锌矿','加工费','TC','冶炼','减产','停产','事故','罢工',
+    '限产','检修','环保督查','制裁','关税','出口限制','进口盈亏']
 # 重要基本面关键词
-_BASIC_KW = ['LME','库存','产量','检修','配额','印尼','关税','不锈钢','排产',
-    '冶炼','精炼','镍矿','红土镍','MHP','高冰镍','镍铁','硫酸镍',
+_BASIC_KW = ['LME','库存','产量','检修','关税','镀锌','排产',
+    '冶炼','精炼','锌矿','锌锭','锌合金','氧化锌',
     '表观消费','进出口','进口盈亏','仓单','注册','注销',
-    '新能源','电池','锂电','宁德时代','比亚迪','特斯拉',
-    '基金持仓','持仓','多头','空头','期现','基差','进口']
+    '房地产','基建','汽车','家电','基金持仓','持仓','多头','空头',
+    '期现','基差','进口','沪锌','伦锌']
 def fetch_news():
-    """Get recent nickel-related news — 统一 scorer v2 打分 (与 fetch_data.py 同一标准)
+    """Get recent zinc-related news — 统一 scorer v2 打分 (与 fetch_data.py 同一标准)
     结构: title/body/source/time/level/score/url/direction/relevant/contradictions/matched_terms"""
     items = []
 
@@ -71,7 +71,7 @@ def fetch_news():
     if news_key:
         try:
             import urllib.request as _ur
-            url = f"{NEWS_BASE}/search?q={urllib.parse.quote('镍')}&hours=48&limit=30&source=all"
+            url = f"{NEWS_BASE}/search?q={urllib.parse.quote('锌')}&hours=48&limit=30&source=all"
             req = _ur.Request(url, headers={"X-News-Key": news_key, "User-Agent": "Mozilla/5.0"})
             with _ur.urlopen(req, timeout=10) as resp:
                 zhiji_news = json.loads(resp.read())
@@ -95,9 +95,9 @@ def fetch_news():
     # 1. 本地DB补充（SMM日报缓存，作为 fallback）
     if len(items) < 10:
         try:
-            conn = sqlite3.connect(NICKEL_DB)
+            conn = sqlite3.connect(ZINC_DB)
             c = conn.cursor()
-            c.execute("SELECT date, content, source FROM news_nickel_scored WHERE date >= date('now', '-7 days') ORDER BY date DESC LIMIT 20")
+            c.execute("SELECT date, content, source FROM news_zinc_scored WHERE date >= date('now', '-7 days') ORDER BY date DESC LIMIT 20")
             for row in c.fetchall():
                 ts, content, source = row
                 m = re.search(r'【([^】]+)】', content)
@@ -141,7 +141,7 @@ def fetch_reports():
         news_key = env_keys.get("NEWS_KEY", "")
         if news_key:
             import urllib.request as _ur
-            for q in ["镍 策略", "镍 研报", "精炼镍 展望", "镍期货 分析"]:
+            for q in ["锌 策略", "锌 研报", "精炼锌 展望", "锌期货 分析"]:
                 if len(reports) >= 5:
                     break
                 url = f"{NEWS_BASE}/search?q={urllib.parse.quote(q)}&hours=168&limit=8&source=all"
@@ -171,9 +171,9 @@ def fetch_reports():
     # 1. 本地DB补充（SMM高分新闻作为 fallback）
     if len(reports) < 5:
         try:
-            conn = sqlite3.connect(NICKEL_DB)
+            conn = sqlite3.connect(ZINC_DB)
             c = conn.cursor()
-            c.execute("SELECT date, content FROM news_nickel_scored WHERE score >= 8 ORDER BY score DESC LIMIT 5")
+            c.execute("SELECT date, content FROM news_zinc_scored WHERE score >= 8 ORDER BY score DESC LIMIT 5")
             for row in c.fetchall():
                 ts, content = row
                 m = re.search(r'【([^】]+)】', content)
@@ -241,16 +241,16 @@ def build_prompt(charts, news, reports):
     nl = "\n".join(f"[{n.get('level','C')}|{n.get('score',0)}分|{_dir_tag(n)}] {n.get('title','')} ({n.get('source','')} | {n.get('time','')} | 距今{_age_hours(n.get('time',''))})" for n in (news or [])[:15])
     rp = "\n".join(f"[研报] {r.get('title','')}: {r.get('body','')[:100]} ({r.get('time','')})" for r in (reports or [])[:8])
 
-    # 提取18个指标
+    # 提取18个指标（槽位名沿用镍版结构, 语义=锌产业链）
     a1_inv, a1_inv_t = gv("A1_lme_inventory", "inventory", charts)
     a1_reg, _ = gv("A1_lme_inventory", "registered", charts)
     a1_canc, _ = gv("A1_lme_inventory", "cancelled", charts)
     a2_ratio, a2_ratio_t = gv("A2_import_window", "shfe_lme_ratio", charts)
-    a2_magma, _ = gv("A2_import_window", "magma_discount", charts)
-    a2_npi, _ = gv("A2_import_window", "indonesia_npi_rate", charts)
-    a3_bean, _ = gv("A3_substitution", "nickel_bean", charts)
+    a2_magma, _ = gv("A2_import_window", "magma_discount", charts)        # 进口盈亏(元/吨, 不含税)
+    a2_npi, _ = gv("A2_import_window", "indonesia_npi_rate", charts)      # 进口占比(%)
+    a3_bean, _ = gv("A3_substitution", "zinc_bean", charts)               # 进口锌精矿TC(美元/干吨)
     a3_shfe, _ = gv("A3_substitution", "shfe_settle", charts)
-    a4_profit, a4_profit_t = gv("A4_smelting_pressure", "profit", charts)
+    a4_profit, a4_profit_t = gv("A4_smelting_pressure", "profit", charts)  # 进口盈亏(含税)
     a4_inv18, _ = gv("A4_smelting_pressure", "inv_18", charts)
     a4_inv27, _ = gv("A4_smelting_pressure", "inv_27", charts)
     a4_bean, _ = gv("A4_smelting_pressure", "bean_inv", charts)
@@ -301,36 +301,37 @@ def build_prompt(charts, news, reports):
 
     weight_note = f"当前动态权重：供给{w_supply}% | 库存{w_inventory}% | 需求{w_demand}% | 资金{w_capital}% | 资讯{w_info}%"
 
-    prompt = f"""你是一位专业的镍(Ni)期货分析师。请根据以下数据，按【6步框架】给出实时解盘。
+    prompt = f"""你是一位专业的锌(Zn)期货分析师。请根据以下数据，按【6步框架】给出实时解盘。
 
 ## 一、输入数据（18个Chart）
 
 ### 基准价格
-- SHFE镍价: {fmt(b1,"元/吨")}（近5日:{b1_t}，变化:{trend_str(b1_t)}）
-- LME镍价: {fmt(b2,"美元/吨")}（近5日:{b2_t}，变化:{trend_str(b2_t)}）
-- 沪伦比: {fmt(b4,"")}（近5日:{b4_t}）
-- 镍豆/SHFE结算: {fmt(a3_bean,"元/吨")} / {fmt(a3_shfe,"元/吨")}
+- 沪锌SHFE结算价: {fmt(b1,"元/吨")}（近5日:{b1_t}，变化:{trend_str(b1_t)}）
+- LME锌现货结算价: {fmt(b2,"美元/吨")}（近5日:{b2_t}，变化:{trend_str(b2_t)}）
+- 沪伦比: {fmt(b4,"")}（近5日:{b4_t}，<0.96进口窗口打开）
+- 进口锌精矿TC: {fmt(a3_bean,"美元/干吨")}（矿端核心指标，负值=冶炼亏损） / 沪锌结算: {fmt(a3_shfe,"元/吨")}
 
 ### LME库存与仓单
 - LME总库存: {fmt(a1_inv,"吨")}（变化:{trend_str(a1_inv_t)}）
 - 注册仓单: {fmt(a1_reg,"吨")} | 注销仓单: {fmt(a1_canc,"吨")}
-- LME流入: {fmt(b11_in,"吨")} | 流出: {fmt(b11_out,"吨")}
 
 ### 国内库存
-- 18家仓库: {fmt(b5_18,"吨")}（变化:{trend_str(b5_18_t)}）
-- 27家仓库: {fmt(b5_27,"吨")}（变化:{trend_str(b5_27_t)}）
-- 镍豆库存: {fmt(b6,"吨")}（变化:{trend_str(b6_t)}）
+- 国内8省锌锭库存: {fmt(b5_18,"万吨")}（变化:{trend_str(b5_18_t)}）
+- 锌锭现货库存(中国日度): {fmt(b6,"万吨")}（变化:{trend_str(b6_t)}）
 
-### 冶炼与供给
-- 冶炼利润: {fmt(b7,"元/吨")}（变化:{trend_str(b7_t)}）
-- 中国产量: {fmt(b8_prod,"吨/月")} | 产能: {fmt(b8_cap,"吨/月")} | 开工率: {fmt(b9_rate,"%")}
-- 印尼产量: {fmt(b9_prod,"吨/月")} | 产能: {fmt(b9_cap,"吨/月")}
-- 印尼NPI税率: {fmt(a2_npi,"%")} | 镍镁差: {fmt(a2_magma,"")}
+### 矿端与冶炼供给
+- 进口锌精矿TC: {fmt(b6,"美元/干吨")}（变化:{trend_str(b6_t)}，下行=矿紧=利多）
+- 精炼锌月产量: {fmt(b8_prod,"万吨/月")} | 产能利用率: {fmt(b8_cap,"%")}
+- 锌合金开工率: {fmt(b9_rate,"%")}（变化:{trend_str(b9_rate_t)}）
+
+### 进口窗口
+- 锌锭进口盈亏(不含税): {fmt(a2_magma,"元/吨")}（负值=进口窗口关闭）
+- 进口占比: {fmt(a2_npi,"%")} | 含税进口盈亏: {fmt(a4_profit,"元/吨")}
 
 ### 需求侧
-- 表观消费: {fmt(b12,"吨/月")}（变化:{trend_str(b12_t)}）
-- 硫酸镍价格: {fmt(b10,"元/吨")}
-- 不锈钢冷轧排产: {fmt(b14_cr,"吨")}（变化:{trend_str(b14_cr_t)}）
+- 镀锌板周产量: {fmt(b9_prod,"万吨")}（占锌消费60%+，需求核心指标）
+- 表观消费: {fmt(b12,"万吨/月")}（变化:{trend_str(b12_t)}）
+- 广东0#锌锭升贴水: {fmt(b14_cr,"元/吨")}（变化:{trend_str(b14_cr_t)}，升水走扩=需求回暖）
 
 ### 资金面
 - SHFE持仓: {fmt(b3,"手")}（变化:{trend_str(b3_t)}）
@@ -377,7 +378,7 @@ def build_prompt(charts, news, reports):
 
 **【建议】**方向 + 关键价位（支撑/阻力） + 确认条件 + 止损触发
 
-**【资讯与研报】**从上方产业资讯和研报观点中提炼3-5条最核心的信息，每条格式：`[事件/观点] → [影响方向] → [对镍价影响]`，控制在3句话以内。
+**【资讯与研报】**从上方产业资讯和研报观点中提炼3-5条最核心的信息，每条格式：`[事件/观点] → [影响方向] → [对锌价影响]`，控制在3句话以内。
 
 ## 四、硬约束
 1. 所有数据必须来自输入，禁止编造
@@ -452,11 +453,11 @@ def _macro_section(macro):
              ((k, _pct_20d(v)) for k, v in metals.items()) if v is not None]
     if met20:
         parts.append("- 6金属近20日涨跌: " + " | ".join(met20) + "（数据源: 知几Guan日K）")
-    ni_vs = _pct_20d(sec.get("ni_vs_sector"))
+    zn_vs = _pct_20d(sec.get("zn_vs_sector"))
     ew = _pct_20d(sec.get("equal_weight_6m"))
-    if ni_vs is not None and ew is not None:
-        rel = "跑赢" if ni_vs > ew else "跑输"
-        parts.append(f"- 镍相对有色板块: 镍{ni_vs:+.1f}% vs 6金属等权{ew:+.1f}% → 镍{rel}板块（差值{ni_vs - ew:+.1f}pct）")
+    if zn_vs is not None and ew is not None:
+        rel = "跑赢" if zn_vs > ew else "跑输"
+        parts.append(f"- 锌相对有色板块: 锌{zn_vs:+.1f}% vs 6金属等权{ew:+.1f}% → 锌{rel}板块（差值{zn_vs - ew:+.1f}pct）")
     us10, cn10, pmi = mac.get("us10y_last"), mac.get("cn10y_last"), mac.get("cn_pmi_last")
     if isinstance(us10, dict) and us10.get("value") is not None:
         line = f"- 美债10Y: {us10['value']}%（{us10.get('date','')}，较上期{us10.get('chg',0):+.2f}）"
@@ -467,11 +468,11 @@ def _macro_section(macro):
         line += "（数据源: 知几料API）"
         parts.append(line)
     ratios = macro.get("ratios") or {}
-    rcu, ral = _pct_20d(ratios.get("ni_cu")), _pct_20d(ratios.get("ni_al"))
+    rcu, ral = _pct_20d(ratios.get("zn_cu")), _pct_20d(ratios.get("zn_al"))
     if rcu is not None or ral is not None:
         cu_s = "N/A" if rcu is None else f"{rcu:+.1f}%（{'跑赢' if rcu > 0 else '跑输'}铜）"
         al_s = "N/A" if ral is None else f"{ral:+.1f}%（{'跑赢' if ral > 0 else '跑输'}铝）"
-        parts.append(f"- 跨品种比价20日变化: 镍/铜 {cu_s} | 镍/铝 {al_s}")
+        parts.append(f"- 跨品种比价20日变化: 锌/铜 {cu_s} | 锌/铝 {al_s}")
     if len(parts) == 1:
         return ""
     return "\n".join(parts)
@@ -479,42 +480,44 @@ def _macro_section(macro):
 def _v2_prompt_template(b1, b1_t, b2, b2_t, b4, b4_t, a3_bean, a3_shfe,
                         a1_inv, a1_inv_t, a1_reg, a1_canc, b11_in, b11_out,
                         b5_18, b5_18_t, b5_27, b5_27_t, b6, b6_t,
-                        b7, b7_t, b8_prod, b8_cap, b9_rate, b9_prod, b9_cap,
-                        a2_npi, a2_magma, b12, b12_t, b10, b14_cr, b14_cr_t,
+                        b7, b7_t, b8_prod, b8_cap, b9_rate, b9_rate_t, b9_prod, b9_cap,
+                        a2_npi, a2_magma, a4_profit, b12, b12_t, b10, b14_cr, b14_cr_t,
                         b3, b3_t, b13_pos, b13_fl, b13_cl, b13_cs,
                         nl, rp, weight_note, tech_line, macro_line):
     """V2 prompt 模板（2026-08-16 试点版，学习锌报告可取之处）"""
-    return f"""你是一位专业的镍(Ni)期货分析师。请根据以下数据，按【6步框架】给出实时解盘。
+    return f"""你是一位专业的锌(Zn)期货分析师。请根据以下数据，按【6步框架】给出实时解盘。
 
 ## 一、输入数据
 
 ### 基准价格
-- SHFE镍价: {fmt(b1,"元/吨")}（近5日:{b1_t}，变化:{trend_str(b1_t)}）
-- LME镍价: {fmt(b2,"美元/吨")}（近5日:{b2_t}，变化:{trend_str(b2_t)}）
-- 沪伦比: {fmt(b4,"")}（近5日:{b4_t}）
-- 镍豆/SHFE结算: {fmt(a3_bean,"元/吨")} / {fmt(a3_shfe,"元/吨")}
+- 沪锌SHFE结算价: {fmt(b1,"元/吨")}（近5日:{b1_t}，变化:{trend_str(b1_t)}）
+- LME锌现货结算价: {fmt(b2,"美元/吨")}（近5日:{b2_t}，变化:{trend_str(b2_t)}）
+- 沪伦比: {fmt(b4,"")}（近5日:{b4_t}，<0.96进口窗口打开）
+- 进口锌精矿TC: {fmt(a3_bean,"美元/干吨")}（矿端核心指标，下行=矿紧=冶炼亏损=利多） / 沪锌结算: {fmt(a3_shfe,"元/吨")}
 {tech_line}
 
 ### LME库存与仓单
 - LME总库存: {fmt(a1_inv,"吨")}（变化:{trend_str(a1_inv_t)}）
 - 注册仓单: {fmt(a1_reg,"吨")} | 注销仓单: {fmt(a1_canc,"吨")}
-- LME流入: {fmt(b11_in,"吨")} | 流出: {fmt(b11_out,"吨")}
+- LME入库: {fmt(b11_in,"吨")} | 出库: {fmt(b11_out,"吨")}
 
 ### 国内库存
-- 18家仓库: {fmt(b5_18,"吨")}（变化:{trend_str(b5_18_t)}）
-- 27家仓库: {fmt(b5_27,"吨")}（变化:{trend_str(b5_27_t)}）
-- 镍豆库存: {fmt(b6,"吨")}（变化:{trend_str(b6_t)}）
+- 国内8省锌锭库存: {fmt(b5_18,"吨")}（变化:{trend_str(b5_18_t)}）
+- 锌锭现货库存(中国日度): {fmt(b5_27,"吨")}（变化:{trend_str(b5_27_t)}）
 
-### 冶炼与供给
-- 冶炼利润: {fmt(b7,"元/吨")}（变化:{trend_str(b7_t)}）
-- 中国产量: {fmt(b8_prod,"吨/月")} | 产能: {fmt(b8_cap,"吨/月")} | 开工率: {fmt(b9_rate,"%")}
-- 印尼产量: {fmt(b9_prod,"吨/月")} | 产能: {fmt(b9_cap,"吨/月")}
-- 印尼NPI税率: {fmt(a2_npi,"%")} | 镍镁差: {fmt(a2_magma,"")}
+### 矿端与冶炼供给
+- 进口锌精矿TC: {fmt(b6,"美元/干吨")}（变化:{trend_str(b6_t)}，下行=矿紧=利多）
+- 精炼锌月产量: {fmt(b8_prod,"万吨/月")} | 产能利用率: {fmt(b8_cap,"%")}
+- 锌锭进口盈亏(不含税): {fmt(b7,"元/吨")}（变化:{trend_str(b7_t)}，负值=进口窗口关闭）
+
+### 进口窗口
+- 锌锭进口盈亏(不含税): {fmt(a2_magma,"元/吨")} | 进口占比: {fmt(a2_npi,"%")} | 含税进口盈亏: {fmt(a4_profit,"元/吨")}
 
 ### 需求侧
-- 表观消费: {fmt(b12,"吨/月")}（变化:{trend_str(b12_t)}）
-- 硫酸镍价格: {fmt(b10,"元/吨")}
-- 不锈钢冷轧排产: {fmt(b14_cr,"吨")}（变化:{trend_str(b14_cr_t)}）
+- 镀锌板周产量: {fmt(b9_prod,"万吨")}（占锌消费60%+，需求核心指标）
+- 表观消费: {fmt(b12,"万吨/月")}（变化:{trend_str(b12_t)}）
+- 锌合金开工率: {fmt(b9_rate,"%")}（变化:{trend_str(b9_rate_t)}）
+- 广东0#锌锭升贴水: {fmt(b14_cr,"元/吨")}（变化:{trend_str(b14_cr_t)}，升水走扩=需求回暖）
 
 ### 资金面
 - SHFE持仓: {fmt(b3,"手")}（变化:{trend_str(b3_t)}）
@@ -544,7 +547,7 @@ def _v2_prompt_template(b1, b1_t, b2, b2_t, b4, b4_t, a3_bean, a3_shfe,
 ### 第4步：β vs α 归因
 结合宏观与跨品种数据，判断本轮涨跌中：
 - β（宏观/板块β）：美债利率、PMI、6金属板块整体走势解释了多大比例？
-- α（镍自身α）：库存/冶炼利润/需求等镍自身供需解释了多大比例？
+- α（锌自身α）：库存/冶炼利润/需求等锌自身供需解释了多大比例？
 → 一句话给出"β主导 / α主导 / 共振"的归因结论。
 
 ### 第5步：因果推演与交叉验证
@@ -566,13 +569,13 @@ def _v2_prompt_template(b1, b1_t, b2, b2_t, b4, b4_t, a3_bean, a3_shfe,
 - 利多：信号1（强度·验证状态）；信号2（强度·验证状态）
 - 利空：信号1（强度·验证状态）；信号2（强度·验证状态）
 
-**【跨品种对比】**镍 vs 铜/铝/锌的相对强弱及传导含义（1-2条）
+**【跨品种对比】**锌 vs 铜/铝/锌的相对强弱及传导含义（1-2条）
 
 **【风险】**3-5条具体证伪路径（"若X发生→Y逻辑被证伪→价格方向"，每条40字以内）
 
 **【建议】**方向 + 关键价位（支撑/阻力） + 确认条件 + 止损触发 + 置信度（高/中/低，给出理由）
 
-**【资讯与研报】**从上方产业资讯和研报观点中提炼3-5条最核心的信息，每条格式：`[事件/观点] → [影响方向] → [对镍价影响]`，控制在3句话以内。**重要：仅引用与镍供需/价格直接相关的资讯，与镍无关的新闻（如纯政治事件、与镍无关的商品）禁止引用。**
+**【资讯与研报】**从上方产业资讯和研报观点中提炼3-5条最核心的信息，每条格式：`[事件/观点] → [影响方向] → [对锌价影响]`，控制在3句话以内。**重要：仅引用与锌供需/价格直接相关的资讯，与锌无关的新闻（如纯政治事件、与锌无关的商品）禁止引用。**
 
 ## 四、硬约束
 1. 所有数据必须来自输入，禁止编造
@@ -616,7 +619,7 @@ def build_prompt_v2(charts, news, reports, macro=None):
     a2_ratio, a2_ratio_t = gv("A2_import_window", "shfe_lme_ratio", charts)
     a2_magma, _ = gv("A2_import_window", "magma_discount", charts)
     a2_npi, _ = gv("A2_import_window", "indonesia_npi_rate", charts)
-    a3_bean, _ = gv("A3_substitution", "nickel_bean", charts)
+    a3_bean, _ = gv("A3_substitution", "zinc_bean", charts)
     a3_shfe, _ = gv("A3_substitution", "shfe_settle", charts)
     a4_profit, a4_profit_t = gv("A4_smelting_pressure", "profit", charts)
     b1, b1_t = gv("B1_shfe_price", charts=charts)
@@ -666,13 +669,13 @@ def build_prompt_v2(charts, news, reports, macro=None):
     w_info = max(5, 100 - w_supply - w_inventory - w_demand - w_capital)
     weight_note = f"当前动态权重：供给{w_supply}% | 库存{w_inventory}% | 需求{w_demand}% | 资金{w_capital}% | 资讯{w_info}%"
 
-    tech_line = f"- SHFE镍技术面(日K): {tech_ni}" if tech_ni else "- SHFE镍技术面(日K): 数据缺失（不足21个交易日）"
+    tech_line = f"- SHFE锌技术面(日K): {tech_ni}" if tech_ni else "- SHFE锌技术面(日K): 数据缺失（不足21个交易日）"
     macro_line = macro_block if macro_block else "### 宏观与跨品种\n- 宏观数据缺失（本轮未投喂）"
     return _v2_prompt_template(
         b1, b1_t, b2, b2_t, b4, b4_t, a3_bean, a3_shfe, a1_inv, a1_inv_t,
         a1_reg, a1_canc, b11_in, b11_out, b5_18, b5_18_t, b5_27, b5_27_t,
-        b6, b6_t, b7, b7_t, b8_prod, b8_cap, b9_rate, b9_prod, b9_cap,
-        a2_npi, a2_magma, b12, b12_t, b10, b14_cr, b14_cr_t, b3, b3_t,
+        b6, b6_t, b7, b7_t, b8_prod, b8_cap, b9_rate, b9_rate_t, b9_prod, b9_cap,
+        a2_npi, a2_magma, a4_profit, b12, b12_t, b10, b14_cr, b14_cr_t, b3, b3_t,
         b13_pos, b13_fl, b13_cl, b13_cs, nl, rp, weight_note, tech_line, macro_line)
 
 # ── Call AI (ZSUN primary, DashScope fallback) ──
@@ -696,7 +699,7 @@ def call_ai(prompt, key):
     if zsun_key:
         try:
             payload = {"model": ZSUN_MODEL, "messages": [
-                {"role":"system","content":"你是专业镍期货分析师，输出结构化研报，面向客户展示。"},
+                {"role":"system","content":"你是专业锌期货分析师，输出结构化研报，面向客户展示。"},
                 {"role":"user","content": prompt}
             ], "max_tokens": 1500, "temperature": 0.7}
             req = urllib.request.Request(ZSUN_URL, data=json.dumps(payload).encode(),
@@ -721,7 +724,7 @@ def call_ai(prompt, key):
     if dash_key:
         try:
             payload = {"model": dash_model, "messages": [
-                {"role":"system","content":"你是专业镍期货分析师，输出结构化研报，面向客户展示。"},
+                {"role":"system","content":"你是专业锌期货分析师，输出结构化研报，面向客户展示。"},
                 {"role":"user","content": prompt}
             ], "max_tokens": 4096, "temperature": 0.7}
             req = urllib.request.Request(DASHSCOPE_URL, data=json.dumps(payload).encode(),

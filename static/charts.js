@@ -1,4 +1,4 @@
-// Nickel Dashboard v3.0 — Static (GitHub Pages)
+// zinc Dashboard v3.0 — Static (GitHub Pages)
 // Reads all data from data.json, no backend needed.
 const DARK = {
     bg: '#111318', axis: '#22252e', text: '#6b7080', grid: '#161820',
@@ -89,27 +89,27 @@ function pt(arr) { return (arr || []).map(p => ({ date: p.date, value: p.value }
 function rA1(d) { if (!d||d.error)return; const c=echarts.init(document.getElementById('chart-a1'));
     c.setOption(lineOpts([{name:'LME总库存',points:pt(d.inventory)},{name:'注册仓单',points:pt(d.registered)},{name:'注销仓单',points:pt(d.cancelled)}],'吨')); }
 function rA2(d) { if (!d||d.error)return; const c=echarts.init(document.getElementById('chart-a2'));
-    c.setOption(lineOpts([{name:'沪伦比值',points:pt(d.shfe_lme_ratio)},{name:'高冰镍LME折扣%',points:pt(d.magma_discount),yAxisIndex:1},{name:'印尼NPI开工率%',points:pt(d.indonesia_npi_rate),yAxisIndex:1}],'沪伦比值(元/吨)','百分比(%)')); }
+    c.setOption(lineOpts([{name:'沪伦比值',points:pt(d.shfe_lme_ratio)},{name:'进口盈亏(元/吨,不含税)',points:pt(d.magma_discount),yAxisIndex:1},{name:'进口占比%',points:pt(d.indonesia_npi_rate),yAxisIndex:1}],'沪伦比值','元/吨 (%)')); }
 function rA3(d) { if (!d||d.error)return; const c=echarts.init(document.getElementById('chart-a3'));
-    c.setOption(lineOpts([{name:'SHFE镍结算价',points:pt(d.shfe_settle)},{name:'镍豆价格',points:pt(d.nickel_bean)}],'元/吨')); }
+    c.setOption(lineOpts([{name:'SHFE锌结算价',points:pt(d.shfe_settle)},{name:'锌精矿TC(美元/干吨)',points:pt(d.zinc_bean),yAxisIndex:1}],'元/吨','美元/干吨')); }
 function rA4(d) { if (!d||d.error)return; const c=echarts.init(document.getElementById('chart-a4'));
-    c.setOption(lineOpts([{name:'冶炼利润',points:pt(d.profit)},{name:'18家库存',points:pt(d.inv_18),yAxisIndex:1},{name:'27家库存',points:pt(d.inv_27),yAxisIndex:1},{name:'镍豆库存',points:pt(d.bean_inv),yAxisIndex:1}],'利润(元/吨)','库存(吨)')); }
-function rB1(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b1')).setOption(lineOpts([{name:'SHFE镍结算价',points:pt(d)}],'元/吨')); }
-function rB2(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b2')).setOption(lineOpts([{name:'LME镍3月结算价',points:pt(d)}],'美元/吨')); }
-function rB3(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b3')).setOption(lineOpts([{name:'SHFE镍持仓量',points:pt(d)}],'手')); }
+    c.setOption(lineOpts([{name:'含税进口盈亏(元/吨)',points:pt(d.profit)},{name:'国内8省锌锭库存',points:pt(d.inv_18),yAxisIndex:1}],'元/吨','吨')); }
+function rB1(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b1')).setOption(lineOpts([{name:'SHFE锌结算价',points:pt(d)}],'元/吨')); }
+function rB2(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b2')).setOption(lineOpts([{name:'LME锌现价',points:pt(d)}],'美元/吨')); }
+function rB3(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b3')).setOption(lineOpts([{name:'SHFE锌持仓量',points:pt(d)}],'手')); }
 function rB4(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b4')).setOption(lineOpts([{name:'沪伦比值',points:pt(d)}],'元/吨')); }
-function rB5(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b5')).setOption(lineOpts([{name:'18家库存',points:pt(d.inv_18)},{name:'27家库存',points:pt(d.inv_27)}],'吨')); }
-function rB6(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b6')).setOption(lineOpts([{name:'镍豆库存(18家)',points:pt(d)}],'吨')); }
-function rB7(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b7')).setOption(lineOpts([{name:'外采高冰镍冶炼利润',points:pt(d)}],'元/吨')); }
+function rB5(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b5')).setOption(lineOpts([{name:'国内8省锌锭库存',points:pt(d.inv_18)}],'吨')); }
+function rB6(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b6')).setOption(lineOpts([{name:'锌精矿TC(美元/干吨)',points:pt(d)}],'美元/干吨')); }
+function rB7(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b7')).setOption(lineOpts([{name:'锌锭进口盈亏(不含税)',points:pt(d)}],'元/吨')); }
 function rB8(d) { if (!d||d.error)return; const c=echarts.init(document.getElementById('chart-b8'));
     c.setOption(barOpts([{name:'国内产量',points:pt(d.chinese_prod)},{name:'国内产能',points:pt(d.chinese_cap)}],'吨/月')); }
-function rB9(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b9')).setOption(lineOpts([{name:'印尼产量',points:pt(d.indonesia_prod)},{name:'印尼产能',points:pt(d.indonesia_cap)},{name:'印尼开工率%',points:pt(d.indonesia_rate),yAxisIndex:1}],'吨/月','百分比(%)')); }
-function rB10(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b10')).setOption(lineOpts([{name:'电池级硫酸镍',points:pt(d)}],'元/吨')); }
+function rB9(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b9')).setOption(lineOpts([{name:'镀锌板产量(万吨)',points:pt(d.indonesia_prod)},{name:'表观消费(万吨)',points:pt(d.indonesia_cap),yAxisIndex:1},{name:'锌合金开工率%',points:pt(d.indonesia_rate),yAxisIndex:1}],'万吨','%')); }
+function rB10(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b10')).setOption(lineOpts([{name:'表观消费(万吨/月)',points:pt(d)}],'万吨')); }
 function rB11(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b11')).setOption(lineOpts([{name:'LME入库',points:pt(d.inflow)},{name:'LME出库',points:pt(d.outflow)}],'吨')); }
-function rB12(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b12')).setOption(barOpts([{name:'精炼镍表观消费',points:pt(d)}],'吨/月')); }
+function rB12(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b12')).setOption(barOpts([{name:'精炼锌表观消费',points:pt(d)}],'吨/月')); }
 function rB13(d) { if (!d||d.error)return; const c=echarts.init(document.getElementById('chart-b13'));
     c.setOption(lineOpts([{name:'LME总持仓',points:pt(d.position)},{name:'基金多头',points:pt(d.fund_long),yAxisIndex:1},{name:'商业多头',points:pt(d.comm_long),yAxisIndex:1},{name:'商业空头',points:pt(d.comm_short),yAxisIndex:1}],'总持仓(手)','分项持仓(手)')); }
-function rB14(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b14')).setOption(barOpts([{name:'300系冷轧排产',points:pt(d.cold_rolling)}],'万吨/月')); }
+function rB14(d) { if (!d||d.error)return; echarts.init(document.getElementById('chart-b14')).setOption(barOpts([{name:'广东0#锌锭升贴水',points:pt(d.cold_rolling)}],'元/吨')); }
 
 // ═══ Data from data.json ═══
 let PAGE_DATA = null;
@@ -148,14 +148,14 @@ function renderMacro() {
         return;
     }
     // ── 指标卡：6金属 20日涨跌幅 + 宏观3指标 ──
-    const mNames = { CU: '铜', AL: '铝', ZN: '锌', PB: '铅', NI: '镍', SN: '锡' };
+    const mNames = { CU: '铜', AL: '铝', ZN: '锌', PB: '铅', ZN: '锌', SN: '锡' };
     let html = '';
-    for (const s of ['CU','AL','ZN','PB','NI','SN']) {
+    for (const s of ['CU','AL','ZN','PB','ZN','SN']) {
         const m = (M.metals || {})[s] || {};
         const p20 = _last20pct(m.norm);
         const cls = p20 === null ? '' : (p20 >= 0 ? 'pos' : 'neg');
         const name = m.name || mNames[s];
-        const isNi = s === 'NI';
+        const isNi = s === 'ZN';
         html += `<div class="macro-card${isNi ? ' is-ni' : ''}">
             <div class="mc-label">${isNi ? '⚡ ' : ''}${name}</div>
             <div class="mc-val">${_fmtPct(p20)}</div>
@@ -183,9 +183,9 @@ function renderMacro() {
     const el1 = document.getElementById('chart-metals');
     if (el1) {
         const ds = [];
-        for (const s of ['CU','AL','ZN','PB','NI','SN']) {
+        for (const s of ['CU','AL','ZN','PB','ZN','SN']) {
             const m = (M.metals || {})[s];
-            if (m && m.norm && m.norm.length) ds.push({ name: (m.name||s) + (s==='NI' ? '(镍)' : ''), points: m.norm, bold: s==='NI' });
+            if (m && m.norm && m.norm.length) ds.push({ name: (m.name||s) + (s==='ZN' ? '(锌)' : ''), points: m.norm, bold: s==='ZN' });
         }
         if (ds.length) {
             const c = echarts.init(el1);
@@ -194,22 +194,22 @@ function renderMacro() {
             c.setOption(opt);
         }
     }
-    // ── 图2：镍 vs 板块 ──
+    // ── 图2：锌 vs 板块 ──
     const el2 = document.getElementById('chart-ni-sector');
     const sec = M.sectors || {};
-    if (el2 && (sec.equal_weight_6m || sec.ni_vs_sector)) {
+    if (el2 && (sec.equal_weight_6m || sec.zn_vs_sector)) {
         echarts.init(el2).setOption(lineOpts([
             { name: '有色板块等权(6金属)', points: sec.equal_weight_6m || [] },
-            { name: '镍相对板块', points: sec.ni_vs_sector || [] }
+            { name: '锌相对板块', points: sec.zn_vs_sector || [] }
         ], '指数(首值=100)'));
     }
     // ── 图3：跨品种比价 ──
     const el3 = document.getElementById('chart-ratios');
     const rat = M.ratios || {};
-    if (el3 && (rat.ni_cu || rat.ni_al)) {
+    if (el3 && (rat.zn_cu || rat.zn_al)) {
         echarts.init(el3).setOption(lineOpts([
-            { name: '镍/铜', points: rat.ni_cu || [] },
-            { name: '镍/铝', points: rat.ni_al || [] }
+            { name: '锌/铜', points: rat.zn_cu || [] },
+            { name: '锌/铝', points: rat.zn_al || [] }
         ], '比价(首值=100)'));
     }
     // ── 图4：美债 vs 中债 ──
@@ -232,23 +232,23 @@ function renderMacro() {
     }
     // ── 联动解读（规则化自动文案，P0 轻量版）──
     const notes = [];
-    const niP = _last20pct((M.metals || {}).NI && (M.metals || {}).NI.norm);
+    const niP = _last20pct((M.metals || {}).ZN && (M.metals || {}).ZN.norm);
     const secP = _last20pct(sec.equal_weight_6m);
-    const niVs = _last20pct(sec.ni_vs_sector);
+    const niVs = _last20pct(sec.zn_vs_sector);
     if (niP !== null && secP !== null) {
-        if (niP > secP + 1) notes.push(`镍20日跑赢板块（镍${_fmtPct(niP)} vs 板块${_fmtPct(secP)}）：存在品种自身逻辑（印尼供给/电池需求/库存），非纯β行情`);
-        else if (niP < secP - 1) notes.push(`镍20日跑输板块（镍${_fmtPct(niP)} vs 板块${_fmtPct(secP)}）：需警惕镍自身供给压力（印尼扩产/MHP过剩）拖累`);
-        else notes.push(`镍与板块同步（${_fmtPct(niP)} vs ${_fmtPct(secP)}）：当前行情以宏观β为主导`);
+        if (niP > secP + 1) notes.push(`锌20日跑赢板块（锌${_fmtPct(niP)} vs 板块${_fmtPct(secP)}）：存在品种自身逻辑（矿端TC/镀锌需求/库存），非纯β行情`);
+        else if (niP < secP - 1) notes.push(`锌20日跑输板块（锌${_fmtPct(niP)} vs 板块${_fmtPct(secP)}）：需警惕锌自身供给压力（矿端宽松/镀锌需求疲软）拖累`);
+        else notes.push(`锌与板块同步（${_fmtPct(niP)} vs ${_fmtPct(secP)}）：当前行情以宏观β为主导`);
     }
     const cuP = _last20pct(((M.metals || {}).CU || {}).norm);
     if (cuP !== null && niP !== null) {
         const diff = cuP - niP;
-        if (Math.abs(diff) > 3) notes.push(`铜镍分化明显（铜${_fmtPct(cuP)} vs 镍${_fmtPct(niP)}）：铜=宏观代理，镍=自身供给逻辑代理，价差走阔指向结构分化`);
+        if (Math.abs(diff) > 3) notes.push(`铜锌分化明显（铜${_fmtPct(cuP)} vs 锌${_fmtPct(niP)}）：铜=宏观代理，锌=自身供给逻辑代理，价差走阔指向结构分化`);
     }
     const pmiArr = (mm.cn_pmi || []).filter(p => !isNaN(p.value));
     if (pmiArr.length) {
         const pmiL = pmiArr[pmiArr.length-1];
-        notes.push(`PMI ${pmiL.value}（${pmiL.value >= 50 ? '扩张区' : '收缩区'}）：中国制造业需求${pmiL.value >= 50 ? '有支撑' : '偏弱'}，对不锈钢/镀锌等金属需求锚${pmiL.value >= 50 ? '偏正面' : '偏负面'}`);
+        notes.push(`PMI ${pmiL.value}（${pmiL.value >= 50 ? '扩张区' : '收缩区'}）：中国制造业需求${pmiL.value >= 50 ? '有支撑' : '偏弱'}，对镀锌/锌合金等需求锚${pmiL.value >= 50 ? '偏正面' : '偏负面'}`);
     }
     const usArr = (mm.us10y || []).filter(p => !isNaN(p.value));
     if (usArr.length > 5) {
@@ -353,7 +353,7 @@ function fetchAIFull() {
     const tsEl = document.getElementById('ai-timestamp');
     
     // Call /analyze for full champion prompt analysis
-    const ANALYZE_URL = '/nickel-gh/api/analyze';
+    const ANALYZE_URL = '/zinc-gh/api/analyze';
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout for full analysis
     
@@ -682,19 +682,19 @@ function renderMultiPromptSection(data) {
     if (currentEl) {
         let html = '<div style="padding:12px;background:#0d0f14;border-radius:6px;font-size:12px;color:#dfe2ea;line-height:1.7;white-space:pre-wrap;">';
         html += '【多数据源投喂版 Prompt 结构】\n\n';
-        html += '角色：资深镍期货分析师\n';
+        html += '角色：资深锌期货分析师\n';
         html += '输入：18个核心指标 + 新闻A/B级过滤 + 产业链数据\n';
         html += '框架：6步分析（矛盾识别→数据验证→交叉检验→情景分析→操作建议→风险提示）\n\n';
         html += '数据源覆盖：\n';
         html += '  1. LME库存/仓单/持仓 (A1, B2, B13)\n';
         html += '  2. SHFE价格/持仓/仓单 (B1, B3)\n';
-        html += '  3. 国内库存18/27家 (B5)\n';
+        html += '  3. 国内8省锌锭库存 (B5)\n';
         html += '  4. 冶炼利润/加工费 (B7)\n';
-        html += '  5. 国内/印尼产量 (B8, B9)\n';
+        html += '  5. 精炼锌产量/下游排产 (B8, B9)\n';
         html += '  6. 沪伦比值/进口窗口 (B4, A2)\n';
-        html += '  7. 镍豆替代 (A3, B6)\n';
-        html += '  8. 表观消费/不锈钢排产 (B12, B14)\n';
-        html += '  9. 电池级硫酸镍 (B10)\n';
+        html += '  7. 锌精矿TC矿端 (A3, B6)\n';
+        html += '  8. 表观消费/升贴水 (B12, B14)\n';
+        html += '  9. 表观消费 (B10)\n';
         html += '  10. LME流入流出 (B11)\n';
         html += '  11. A/B级新闻（自动评分过滤）\n';
         html += '  12. 交叉验证规则引擎\n';
@@ -708,22 +708,22 @@ function renderMultiPromptSection(data) {
         const indicators = [
             ['LME总库存', charts.A1_lme_inventory],
             ['沪伦比值', charts.A2_import_window],
-            ['SHFE-镍豆比价', charts.A3_substitution],
+            ['沪锌/锌精矿TC', charts.A3_substitution],
             ['冶炼利润+库存', charts.A4_smelting_pressure],
-            ['SHFE镍价', charts.B1_shfe_price],
-            ['LME镍价', charts.B2_lme_price],
+            ['SHFE锌价', charts.B1_shfe_price],
+            ['LME锌价', charts.B2_lme_price],
             ['SHFE持仓', charts.B3_shfe_oi],
             ['沪伦比值', charts.B4_ratio],
             ['国内库存', charts.B5_china_inventory],
-            ['镍豆库存', charts.B6_bean_inventory],
+            ['锌精矿TC', charts.B6_bean_inventory],
             ['冶炼利润', charts.B7_smelting_profit],
             ['国内产量', charts.B8_china_production],
-            ['印尼产量', charts.B9_indonesia],
-            ['硫酸镍价', charts.B10_sulfate_price],
+            ['镀锌板产量/锌合金开工率', charts.B9_indonesia],
+            ['表观消费', charts.B10_sulfate_price],
             ['LME流入流出', charts.B11_lme_flow],
             ['表观消费', charts.B12_apparent_consumption],
             ['LME资金', charts.B13_lme_funding],
-            ['不锈钢排产', charts.B14_stainless]
+            ['广东0#锌锭升贴水', charts.B14_stainless]
         ];
         indicators.forEach(([name, ch]) => {
             const hasData = ch && Object.keys(ch).length > 0;
@@ -795,7 +795,7 @@ function renderMultiPromptSection(data) {
     if (templateEl) {
         let html = '<div style="padding:8px;background:#0d0f14;border-radius:6px;font-size:11px;color:#6b7280;line-height:1.6;white-space:pre-wrap;">';
         html += '=== 构建后的 Prompt 模板 ===\n\n';
-        html += '[角色]\n资深镍期货分析师，基于多数据源进行产业级分析。\n\n';
+        html += '[角色]\n资深锌期货分析师，基于多数据源进行产业级分析。\n\n';
         html += '[输入数据]\n{18个指标的最新值 + 历史趋势}\n{A/B级新闻，自动评分过滤}\n{产业链各环节数据}\n\n';
         html += '[分析框架]\n1. 矛盾识别 → 2. 数据验证 → 3. 交叉检验\n4. 情景分析 → 5. 操作建议 → 6. 风险提示\n\n';
         html += '[输出要求]\n- 多空各至少3条逻辑，权重评分\n- 关键价位/催化事件/时间框架\n- 数据引用需标注来源\n- 禁止编造不存在的数据\n';
@@ -931,7 +931,7 @@ function renderRuleAnalysis() {
         const inv = b5.inv_18[b5.inv_18.length - 1].value;
         const status = inv < 50000 ? '🟢 低库存' : inv < 100000 ? '🟡 中等' : '🔴 高库存';
         const color = inv < 50000 ? '#22c55e' : inv < 100000 ? '#facc15' : '#ef4444';
-        checks.push({ label: 'SHFE库存(18家)', value: status + ' (' + Math.round(inv) + ' 吨)', color });
+        checks.push({ label: '国内锌锭库存(8省)', value: status + ' (' + Math.round(inv) + ' 吨)', color });
     }
     
     checks.forEach(c => {

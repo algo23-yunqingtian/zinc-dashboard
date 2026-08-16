@@ -27,20 +27,20 @@ function pvDataMapping() {
   var maps = [
     ['A1','LME库存','inventory/registered/cancelled','3'],
     ['A2','进口窗口','shfe_lme_ratio/magma/npi_rate','3'],
-    ['A3','替代关系','nickel_bean/shfe_settle','2'],
+    ['A3','替代关系','zinc_bean/shfe_settle','2'],
     ['A4','冶炼压力','profit/inv18/inv27/bean_inv','4'],
     ['B1','SHFE价格','shfe_ni_settle','1'],
     ['B2','LME价格','lme_ni_settle','1'],
     ['B3','SHFE持仓','shfe_oi','1'],
     ['B4','沪伦比','shfe_lme_ratio','1'],
     ['B5','国内库存','inv18/inv27','2'],
-    ['B6','镍豆库存','bean_inv','1'],
+    ['B6','锌豆库存','bean_inv','1'],
     ['B7','冶炼利润','ref_profit','1'],
     ['B8','中国产量','chinese_prod/cap','2'],
     ['B9','印尼产量','indo_prod/cap/rate','3'],
-    ['B10','硫酸镍','lme_sulfate_price','1'],
+    ['B10','硫酸锌','lme_sulfate_price','1'],
     ['B11','LME流入/出','outflow/inflow','2'],
-    ['B12','表观消费','ni_apparent_cons','1'],
+    ['B12','表观消费','zn_apparent_cons','1'],
     ['B13','LME资金面','position/fund_long/comm_long/comm_short','4'],
     ['B14','不锈钢排产','cold_rolling','1']
   ];
@@ -60,9 +60,9 @@ function pvWeights() {
   h += '<div style="padding:6px;margin:4px 0;background:#1a1d26;border-radius:6px;">';
   h += '<span style="color:#f97316;font-weight:700;">供给端 35%</span><br><span style="color:#6b7280;">冶炼利润 · 产量 · 产能 · 开工率 · 印尼NPI</span></div>';
   h += '<div style="padding:6px;margin:4px 0;background:#1a1d26;border-radius:6px;">';
-  h += '<span style="color:#3b82f6;font-weight:700;">库存端 25%</span><br><span style="color:#6b7280;">LME总/注册/注销 · 18家 · 27家 · 镍豆</span></div>';
+  h += '<span style="color:#3b82f6;font-weight:700;">库存端 25%</span><br><span style="color:#6b7280;">LME总/注册/注销 · 18家 · 27家 · 锌豆</span></div>';
   h += '<div style="padding:6px;margin:4px 0;background:#1a1d26;border-radius:6px;">';
-  h += '<span style="color:#22c55e;font-weight:700;">需求端 20%</span><br><span style="color:#6b7280;">表观消费 · 不锈钢排产 · 硫酸镍</span></div>';
+  h += '<span style="color:#22c55e;font-weight:700;">需求端 20%</span><br><span style="color:#6b7280;">表观消费 · 不锈钢排产 · 硫酸锌</span></div>';
   h += '<div style="padding:6px;margin:4px 0;background:#1a1d26;border-radius:6px;">';
   h += '<span style="color:#a855f7;font-weight:700;">资金端 15%</span><br><span style="color:#6b7280;">SHFE持仓 · LME持仓 · 基金/商业多空</span></div>';
   h += '<div style="padding:6px;margin:4px 0;background:#1a1d26;border-radius:6px;">';
@@ -76,14 +76,14 @@ function pvPromptTemplate() {
   var e = document.getElementById('pv-prompt-template');
   if (!e) return;
   var tpl = [
-    '你是一位专业的镍(Ni)期货分析师。请根据以下数据，按【6步框架】给出实时解盘。',
+    '你是一位专业的锌(Zn)期货分析师。请根据以下数据，按【6步框架】给出实时解盘。',
     '',
     '## 一、输入数据（18个Chart → 47指标）',
-    '### 基准价格 | SHFE镍价 | LME镍价 | 沪伦比 | 镍豆/SHFE结算',
+    '### 基准价格 | SHFE锌价 | LME锌价 | 沪伦比 | 锌豆/SHFE结算',
     '### LME库存与仓单 | 总库存/注册/注销 | LME流入/流出',
-    '### 国内库存 | 18家仓库 | 27家仓库 | 镍豆库存',
-    '### 冶炼与供给 | 冶炼利润 | 中国产量/产能/开工率 | 印尼产量/产能 | NPI税率 | 镍镁差',
-    '### 需求侧 | 表观消费 | 硫酸镍价格 | 不锈钢冷轧排产',
+    '### 国内库存 | 18家仓库 | 27家仓库 | 锌豆库存',
+    '### 冶炼与供给 | 冶炼利润 | 中国产量/产能/开工率 | 印尼产量/产能 | NPI税率 | 锌镁差',
+    '### 需求侧 | 表观消费 | 硫酸锌价格 | 不锈钢冷轧排产',
     '### 资金面 | SHFE持仓 | LME持仓/基金多头/商业多空',
     '### 产业资讯 (A/B级新闻)',
     '',

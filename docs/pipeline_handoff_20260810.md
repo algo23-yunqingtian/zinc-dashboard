@@ -1,4 +1,4 @@
-# 镍看板分析文字工程 — 交接文档 (2026-08-10)
+# 锌看板分析文字工程 — 交接文档 (2026-08-10)
 
 > **上下文来源：** 飞书对话，模型 Only，上下文约 70%
 > **下一步：** 新对话加载此文后，从 P0 任务开始执行
@@ -9,10 +9,10 @@
 
 | 项 | 值 |
 |---|---|
-| 仓库 | `github.com/algo23-yunqingtian/nickel-dashboard` |
-| 代码路径 | `/home/ubuntu/nickel_dashboard_gh/` |
-| Nginx目录 | `/home/ubuntu/nickel_gh_static/` |
-| 预览地址 | `http://124.221.113.37:8766/nickel-gh/` |
+| 仓库 | `github.com/algo23-yunqingtian/zinc-dashboard` |
+| 代码路径 | `/home/ubuntu/zinc_dashboard_gh/` |
+| Nginx目录 | `/home/ubuntu/zinc_gh_static/` |
+| 预览地址 | `http://124.221.113.37:8766/zinc-gh/` |
 | 协作规则 | **仅飞书端参与**，微信/网页/其他agent不碰 |
 | Git状态 | commit `fb9bb82` 已推 origin/main |
 
@@ -108,20 +108,20 @@ akshare 新闻×20条                       ──► gen_ai() AI解盘(只喂~8
 
 | Chart | 指标 | 属于五层框架 | 选取原因 |
 |-------|------|------------|---------|
-| A1_lme_inventory | LME库存/注册/注销 | 第二层-库存锚 | 镍供需核心指标 |
-| A2_import_window | 沪伦比/镍镁差/印尼NPI税率 | 第三层-价格信号 | 进口窗口开/关 |
-| A3_substitution | 镍豆价/SHFE结算 | 第三层-替代关系 | 镍豆替代精炼镍 |
-| A4_smelting_pressure | 利润/18家库存/27家库存/镍豆库存 | 第二层-供给锚 | 冶炼压力综合 |
-| B1_shfe_price | SHFE镍价 | 第一层-基准价 | 国内定价基准 |
-| B2_lme_price | LME镍价 | 第一层-基准价 | 国际定价基准 |
+| A1_lme_inventory | LME库存/注册/注销 | 第二层-库存锚 | 锌供需核心指标 |
+| A2_import_window | 沪伦比/锌镁差/印尼NPI税率 | 第三层-价格信号 | 进口窗口开/关 |
+| A3_substitution | 锌豆价/SHFE结算 | 第三层-替代关系 | 锌豆替代精炼锌 |
+| A4_smelting_pressure | 利润/18家库存/27家库存/锌豆库存 | 第二层-供给锚 | 冶炼压力综合 |
+| B1_shfe_price | SHFE锌价 | 第一层-基准价 | 国内定价基准 |
+| B2_lme_price | LME锌价 | 第一层-基准价 | 国际定价基准 |
 | B3_shfe_oi | SHFE持仓量 | 第四层-资金情绪 | 多空博弈强度 |
 | B4_ratio | 沪伦比 | 第三层-比价 | 进口窗口 |
 | B5_china_inventory | 18家+27家库存 | 第二层-库存锚 | 国内库存 |
-| B6_bean_inventory | 镍豆库存 | 第二层-供给锚 | 低成本替代 |
+| B6_bean_inventory | 锌豆库存 | 第二层-供给锚 | 低成本替代 |
 | B7_smelting_profit | 冶炼利润 | 第二层-供给锚 | 冶炼瓶颈 |
 | B8_china_production | 中国产量/产能 | 第二层-供给锚 | 国内供给 |
 | B9_indonesia | 印尼产量/产能/开工率 | 第二层-供给锚 | 全球最大供给源 |
-| B10_sulfate_price | 硫酸镍价格 | 第二层-需求锚 | 新能源电池需求 |
+| B10_sulfate_price | 硫酸锌价格 | 第二层-需求锚 | 新能源电池需求 |
 | B11_lme_flow | LME流入/流出 | 第二层-库存锚 | 隐性库存流动 |
 | B12_apparent_consumption | 表观消费 | 第二层-需求锚 | 总需求代理 |
 | B13_lme_funding | 资金面(4维度) | 第四层-资金情绪 | 新增，LME融资 |
@@ -137,7 +137,7 @@ akshare 新闻×20条                       ──► gen_ai() AI解盘(只喂~8
 **优化建议：**
 1. 补充 CFTC 持仓（第四层）
 2. 补充期限结构 Contango/Backwardation（第三层）
-3. 补充硫酸镍产量（第二层-需求锚，新能源电池~15%）
+3. 补充硫酸锌产量（第二层-需求锚，新能源电池~15%）
 
 ### 5.2 通用化指标选取机制（待实现）
 
@@ -225,10 +225,10 @@ gen_ai() 生成分析
 | 项 | 值 |
 |---|---|
 | Zhiji API key | `~/.hermes/scripts/zhiji_api.py` 第15行 |
-| SiliconFlow key | `/home/ubuntu/nickel_dashboard_gh/.env` 中 `SILICONFLOW_KEY` |
+| SiliconFlow key | `/home/ubuntu/zinc_dashboard_gh/.env` 中 `SILICONFLOW_KEY` |
 | SiliconFlow 模型 | `SF_MODEL` (fetch_data.py 中定义) |
 | 数据抓取命令 | `ZHJI_KEY=<key> SILICONFLOW_KEY=$(grep SILICONFLOW_KEY .env\|cut -d= -f2) python3 fetch_data.py` |
-| 同步到Nginx | `cp data.json index.html /home/ubuntu/nickel_gh_static/ && cp -r static/* /home/ubuntu/nickel_gh_static/static/` |
+| 同步到Nginx | `cp data.json index.html /home/ubuntu/zinc_gh_static/ && cp -r static/* /home/ubuntu/zinc_gh_static/static/` |
 
 ---
 

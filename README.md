@@ -1,17 +1,17 @@
-# 镍(Ni)看板 v3.0
+# 锌(Ni)看板 v3.0
 
-[![Fetch Data](https://github.com/algo23-yunqingtian/nickel-dashboard/actions/workflows/fetch.yml/badge.svg)](https://github.com/algo23-yunqingtian/nickel-dashboard/actions/workflows/fetch.yml)
+[![Fetch Data](https://github.com/algo23-yunqingtian/zinc-dashboard/actions/workflows/fetch.yml/badge.svg)](https://github.com/algo23-yunqingtian/zinc-dashboard/actions/workflows/fetch.yml)
 
 ## 预览
 
-- **服务器版**（推荐，实时 AI）：http://124.221.113.37:8766/nickel-gh/
-- **GitHub Pages**（缓存 AI）：https://algo23-yunqingtian.github.io/nickel-dashboard/
+- **服务器版**（推荐，实时 AI）：http://124.221.113.37:8766/zinc-gh/
+- **GitHub Pages**（缓存 AI）：https://algo23-yunqingtian.github.io/zinc-dashboard/
 
 ## 功能
 
 | 功能 | 说明 |
 |---|---|
-| ⚡ A核心矛盾 | LME库存、进口窗口、镍豆替代、冶炼利润 vs 库存 |
+| ⚡ A核心矛盾 | LME库存、进口窗口、锌豆替代、冶炼利润 vs 库存 |
 | 📊 B基本面 | 14张图表：SHFE/LME价格、持仓、沪伦比、库存、利润、产量、表观消费等 |
 | 📡 实时资讯 | SMM + Mysteel 新闻，A/B/C 分级 |
 | 🤖 AI解盘 | 服务器端实时调用 SiliconFlow Qwen2.5-72B，GitHub Pages 显示缓存 |
@@ -41,8 +41,8 @@
 
 ```bash
 # 1. 克隆
-git clone https://github.com/algo23-yunqingtian/nickel-dashboard.git
-cd nickel-dashboard
+git clone https://github.com/algo23-yunqingtian/zinc-dashboard.git
+cd zinc-dashboard
 
 # 2. 配置 API Key
 cp .env.example .env

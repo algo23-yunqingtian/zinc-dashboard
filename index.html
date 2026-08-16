@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>镍(Ni)产业看板 v3.0</title>
+    <title>锌(Zn)产业看板 v3.0</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
     <link rel="stylesheet" href="static/style.css">
 </head>
@@ -11,7 +11,7 @@
     <!-- Left Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
-            <div class="logo">Ni</div>
+            <div class="logo">Zn</div>
             <div class="realtime-price" id="realtime-price">--</div>
         </div>
         <nav class="nav-tabs">
@@ -69,15 +69,15 @@
                         <div id="chart-a1" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">A2 · 进口窗口 + 印尼供应弹性</div>
+                        <div class="card-title">A2 · 进口窗口 + 进口盈亏</div>
                         <div id="chart-a2" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">A3 · 镍豆替代电解镍效应</div>
+                        <div class="card-title">A3 · 锌精矿TC（矿端核心）</div>
                         <div id="chart-a3" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">A4 · 冶炼利润 vs 国内库存压力</div>
+                        <div class="card-title">A4 · 含税进口盈亏 vs 国内库存</div>
                         <div id="chart-a4" class="chart"></div>
                     </div>
                 </div>
@@ -106,15 +106,15 @@
             <div class="section-body">
                 <div class="chart-grid-3">
                     <div class="chart-card">
-                        <div class="card-title">B1 · SHFE镍结算价</div>
+                        <div class="card-title">B1 · SHFE锌结算价</div>
                         <div id="chart-b1" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">B2 · LME镍3月结算价</div>
+                        <div class="card-title">B2 · LME锌现价(美元/吨)</div>
                         <div id="chart-b2" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">B3 · SHFE镍持仓量</div>
+                        <div class="card-title">B3 · SHFE锌持仓量</div>
                         <div id="chart-b3" class="chart"></div>
                     </div>
                     <div class="chart-card">
@@ -122,35 +122,35 @@
                         <div id="chart-b4" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">B5 · 国内精炼镍库存</div>
+                        <div class="card-title">B5 · 国内精炼锌库存</div>
                         <div id="chart-b5" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">B6 · 镍豆库存(18家)</div>
+                        <div class="card-title">B6 · 锌精矿TC(美元/干吨)</div>
                         <div id="chart-b6" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">B7 · 外采高冰镍冶炼利润</div>
+                        <div class="card-title">B7 · 锌锭进口盈亏(不含税)</div>
                         <div id="chart-b7" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">B8 · 国内精炼镍产量</div>
+                        <div class="card-title">B8 · 国内精炼锌产量</div>
                         <div id="chart-b8" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">B9 · 印尼精炼镍</div>
+                        <div class="card-title">B9 · 下游排产(镀锌/合金)</div>
                         <div id="chart-b9" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">B10 · 电池级硫酸镍价格</div>
+                        <div class="card-title">B10 · 精炼锌表观消费</div>
                         <div id="chart-b10" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">B11 · LME镍入库/出库量</div>
+                        <div class="card-title">B11 · LME锌入库/出库量</div>
                         <div id="chart-b11" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">B12 · 精炼镍表观消费量</div>
+                        <div class="card-title">B12 · 精炼锌表观消费量</div>
                         <div id="chart-b12" class="chart"></div>
                     </div>
                     <div class="chart-card">
@@ -158,7 +158,7 @@
                         <div id="chart-b13" class="chart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">B14 · 300系不锈钢排产</div>
+                        <div class="card-title">B14 · 广东0#锌锭升贴水</div>
                         <div id="chart-b14" class="chart"></div>
                     </div>
                 </div>
@@ -199,11 +199,11 @@
                 </div>
                 <div class="chart-grid-2">
                     <div class="chart-card">
-                        <div class="card-title">镍 vs 有色板块等权指数（镍的相对强弱）</div>
+                        <div class="card-title">锌 vs 有色板块等权指数（锌的相对强弱）</div>
                         <div id="chart-ni-sector" class="chart" style="height:260px;"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="card-title">跨品种比价：镍/铜 · 镍/铝</div>
+                        <div class="card-title">跨品种比价：锌/铜 · 锌/铝</div>
                         <div id="chart-ratios" class="chart" style="height:260px;"></div>
                     </div>
                     <div class="chart-card">
