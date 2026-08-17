@@ -1085,7 +1085,6 @@ def main():
     out = os.environ.get("OUTPUT", "data.json")
     with open(out, "w") as f:
         json.dump(data, f, ensure_ascii=False)
-    print(f"✓ Written to {out} ({os.path.getsize(out)} bytes)")
 
 if __name__ == "__main__":
     main()
