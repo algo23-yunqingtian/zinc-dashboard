@@ -35,9 +35,30 @@ def _latest(values):
     return values[-1] if values else None
 
 
-# ── ① Rule 规则型：yaml 矛盾 × 新闻命中 ──
-def _strategy_rule(news, yaml_path=YAML_PATH):
-    """news: list of dict(含 title/body)。返回矛盾列表。无 yaml 或无 news 时返回 []。"""
+def _signal_direction(c, charts):
+    """数据代理方向：读 yaml signal{series,trend,direction}，用底层序列趋势判多空。
+    仅当趋势匹配(trend=down 且序列 sign=-1 / trend=up 且 sign=+1)时返回配置方向，否则 0。
+    charts 为 None 时返回 0（保持无图不强行判方向）。"""
+    sig = c.get("signal")
+    if not sig or charts is None:
+        return 0
+    ser = sig.get("series")
+    if not ser:
+        return 0
+    _, v = get_series(charts, ser)
+    if len(v) < 3:
+        return 0
+    sgn, _, _ = direction(v)
+    want = 1 if sig.get("trend") == "up" else (-1 if sig.get("trend") == "down" else 0)
+    if want != 0 and sgn == want:
+        return sig.get("direction", 0)
+    return 0
+
+
+# ── ① Rule 规则型：yaml 矛盾 × 新闻命中（+ 数据代理方向）──
+def _strategy_rule(news, charts=None, yaml_path=YAML_PATH):
+    """news: list of dict(含 title/body)。charts: data.json.charts（用于数据代理方向）。
+    返回矛盾列表。无 yaml 或无 news 时返回 []。"""
     try:
         import yaml
         cfg = yaml.safe_load(open(yaml_path, encoding="utf-8"))
@@ -60,12 +81,21 @@ def _strategy_rule(news, yaml_path=YAML_PATH):
         # 判断多/空：命中 bullish 多→利多，bearish 多→利空
         bull_h = sum(1 for k in (c.get("bullish") or []) if k and k in blob)
         bear_h = sum(1 for k in (c.get("bearish") or []) if k and k in blob)
-        dr = 1 if bull_h > bear_h else (-1 if bear_h > bull_h else 0)
+        dr = 1 if bull_h > bear_h else (-1 if bear_h > bear_h else 0)
+        evidence = [{"news_hits": hits}]
+        # 数据代理方向：新闻没给方向时，用图表趋势补一个（即使新闻给了也记录佐证）
+        sig_dir = _signal_direction(c, charts)
+        if sig_dir != 0:
+            sig = c.get("signal") or {}
+            if dr == 0:
+                dr = sig_dir
+            evidence.append({"data_signal": sig.get("series"),
+                             "trend": sig.get("trend"), "direction": sig_dir})
         out.append({
             "id": c.get("id", "rule"), "strategy": "rule",
             "name": c.get("name", "?"),
             "strength": round(min(1.0, hits / 3), 3),
-            "direction": dr, "evidence": [{"news_hits": hits}],
+            "direction": dr, "evidence": evidence,
             "confidence": round(min(1.0, hits / 2), 3),
         })
     return out
@@ -180,7 +210,7 @@ def run_engine(charts, news=None):
     res = []
     res += _strategy_anomaly(charts)
     res += _strategy_divergence(charts)
-    res += _strategy_rule(news)
+    res += _strategy_rule(news, charts)
     res.sort(key=lambda x: x["strength"], reverse=True)
     res = _dedup_by_series(res)
     return res
