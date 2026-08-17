@@ -22,16 +22,16 @@
 ### 微信端负责（唯一）
 | 文件 | 职责 |
 |---|---|
-| `fetch_data.py` | 数据抓取、data.json 生成 |
-| `proxy.py` | AI 代理（SiliconFlow） |
+| `fetch_zn.py` | 数据抓取、data.json 生成 |
+| `proxy_zn.py` | AI 代理（SiliconFlow） |
 | `.env` | API Key（不在 git 里） |
 | `.github/workflows/fetch.yml` | GitHub Actions |
 | `data.json` | 唯一数据源，Actions 每 30min 更新 |
 | `static/charts.js` | 前端渲染逻辑 |
 
 ### 飞书端禁止修改
-- ❌ `fetch_data.py`
-- ❌ `proxy.py`
+- ❌ `fetch_zn.py`
+- ❌ `proxy_zn.py`
 - ❌ `data.json`
 - ❌ `.github/workflows/`
 - ❌ `static/charts.js`（除非微信端要求）
