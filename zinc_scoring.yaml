@@ -1,409 +1,223 @@
-symbol: Ni
+# 锌(Zn)看板 AI 解盘评分配置
+# 复刻自 nickel_scoring.yaml（结构完全一致），按锌产业链重构：
+#   核心矛盾 = 矿端紧缺(锌精矿TC) ↔ 冶炼产能/利润博弈，需求端由镀锌(地产/基建)主导
+# 数据键名沿用镍版结构(B9_indonesia / B14_stainless / A3_substitution ...)，
+# 但其承载的已是锌数据（详见 docs/zinc_frame.md 第3节"键名映射"）。
+symbol: Zn
 symbol_cn: 锌
-category: 有色
-version: '3.0'
-generated: '2026-08-11'
-updated: '2026-08-16'
-bottleneck: 精炼环节（印尼政策管制+环保限产）
+category: 有色金属
+version: "2.0.0"   # v2.0 = 首次从镍框架复刻为锌框架 (2026-08-17)
+
+# ============================================================
+# 一、核心瓶颈（锌特有）
+# ============================================================
+bottleneck:
+  summary: 锌的核心矛盾在"矿端紧缺（锌精矿TC）"与"冶炼产能/利润"的博弈，需求端由镀锌（地产后周期/基建）主导
+  supply_side: 锌精矿供应紧张度（锌精矿TC、矿山扰动、对进口矿依赖度）
+  demand_side: 镀锌板（地产/基建）需求、压铸锌合金、氧化锌
+  price_driver: 矿端紧缺 → TC下行 → 冶炼利润压缩 → 被动减产 → 供给收缩；镀锌需求决定消费弹性
+  note: 锌的矿端集中度高于镍，嘉能可/泰克/伦丁等巨头减产对TC与价格扰动显著
+
+# ============================================================
+# 二、核心指标（看板18图 → 锌语义）
+# ============================================================
 core_indicators:
-- 精炼费(LME RB) - 供给锚, 领先4-8周
-- 不锈钢冷轧排产 - 需求锚, 领先2-4周
-- SHFE+LME库存 - 库存锚, 同步验证
-- 印尼锌豆港口库存 - 隐性供给锚, 领先2-4周
-- SHFE/LME比价 - 价格信号, 领先1-2周
+  mine_supply:   [锌精矿TC(美元/干吨), 锌精矿进口量, 矿山开工率, 矿端扰动事件]
+  smelter:       [冶炼厂利润(元/吨), 冶炼开工率, 检修/减停产]
+  demand:        [镀锌板产量(万吨), 压铸锌合金开工率, 表观消费]
+  inventory:     [SHFE库存, LME库存(注册/注销), 七地社会库存]
+  spread:        [广东0#锌锭升贴水, 沪伦比/进口窗口]
+  macro:         [美元指数, 有色板块资金流]
 
-# ═══════════════════════════════════════════
-# 矛盾权重映射 (对应 zinc_frame.md 中的核心矛盾表)
-# 5星=最核心矛盾, 1星=边缘
-# ═══════════════════════════════════════════
+# ============================================================
+# 三、8大核心矛盾（替代镍版 contradictions）
+#    每条: weight(权重) + bullish/bearish 信号 + news_keywords
+# ============================================================
 contradictions:
-  lme_supply_tight:
-    name: "LME库存 vs 精炼锌供需"
+  - id: mine_supply_tight
+    name: "矿端紧缺（锌精矿TC）"
     weight: 5
-    description: "LME库存持续变化是价格敏感指标，库存下降=供应紧"
-  indonesia_supply:
-    name: "印尼锌供应弹性"
-    weight: 5
-    description: "印尼占全球锌供应50%+，HPAL扩产 vs 出口政策"
-  battery_vs_stainless:
-    name: "电池锌 vs 不锈钢锌分化"
-    weight: 4
-    description: "两种需求增长逻辑不同，可能导致价格分歧"
-  zinc_beans_substitution:
-    name: "国内纯锌豆替代效应"
-    weight: 4
-    description: "锌豆低价冲击电解锌定价，国内冶炼利润压缩"
-  price_ratio:
-    name: "沪锌 vs LME锌比价"
-    weight: 3
-    description: "进口窗口开关影响国内供应节奏"
-  battery_tech_route:
-    name: "三元电池技术路线争议"
-    weight: 3
-    description: "LFP vs 三元影响中长期电池锌需求预期"
-  stainless_cyclical:
-    name: "不锈钢消费周期性"
-    weight: 3
-    description: "房地产下行 vs 制造业支撑的拉锯"
+    bullish:  [锌精矿TC下行, 海外矿山减产, 矿端扰动/罢工, 进口矿到港减少]
+    bearish:  [锌精矿TC上行, 新建矿山投产, 进口矿放量]
+    news_keywords: [锌精矿, 锌矿, TC, 加工费, 嘉能可, 泰克, 伦丁, 秘鲁, 玻利维亚, 矿山减产, 矿端扰动]
 
-# ═══════════════════════════════════════════
-# 相关性闸门 (relevance gate)
-# 标题+正文必须命中 core_terms 中任一词，
-# 或命中 combo.any 且同时命中 combo.with_any 中任一词；
-# 否则评分上限 cap_score（视为非锌新闻，降出榜单）
-# 目的: 防止"哥伦比亚强震"这类与锌无关的新闻借
-#       disruption 词组(地震)虚高得分霸榜
-# ═══════════════════════════════════════════
+  - id: tc_rc_trend
+    name: "TC/RC 加工费趋势"
+    weight: 5
+    bullish:  [TC长单下调, 加工费创历史低位, 矿紧料紧]
+    bearish:  [TC长单上调, 加工费回升, 矿松料松]
+    news_keywords: [长单TC, 加工费谈判, benchmark TC, 锌精矿基准]
+
+  - id: smelter_margin
+    name: "冶炼利润与开工"
+    weight: 4
+    bullish:  [冶炼利润修复, 检修后复产, 被动减产结束]
+    bearish:  [冶炼利润转亏, 检修/被动减产扩大, 开工率下行]
+    news_keywords: [冶炼利润, 冶炼厂检修, 减产, 开工率, 株冶, 中金岭南, 驰宏锌锗, 豫光金铅]
+
+  - id: galvanizing_demand
+    name: "镀锌需求（地产/基建）"
+    weight: 4
+    bullish:  [镀锌板产量回升, 基建/地产政策刺激, 镀锌开工提升]
+    bearish:  [镀锌板减产, 地产新开工走弱, 镀锌需求疲软]
+    news_keywords: [镀锌, 镀锌板, 地产, 基建, 压铸锌合金, 氧化锌, 新开工, 稳增长]
+
+  - id: inventory_draw
+    name: "七地库存去化"
+    weight: 5
+    bullish:  [七地库存去化, LME注销仓单上升, 低库存+back结构]
+    bearish:  [七地库存累库, LME注册仓单增加, 高库存压力]
+    news_keywords: [七地库存, 社会库存, LME库存, 注销仓单, 注册仓单, 低库存]
+
+  - id: import_window
+    name: "进口窗口（沪伦比）"
+    weight: 3
+    bullish:  [沪伦比修复, 进口盈利, 比价走强]
+    bearish:  [沪伦比走低, 进口亏损, 比价走弱]
+    news_keywords: [沪伦比, 进口盈亏, 比价, 人民币, 进口锌]
+
+  - id: macro_liquidity
+    name: "宏观流动性"
+    weight: 3
+    bullish:  [降息/宽松, 美元走弱, 有色板块资金流入]
+    bearish:  [加息/紧缩, 美元走强, 风险偏好下降]
+    news_keywords: [美联储, 降息, 美元指数, 流动性, 有色板块, 资金流]
+
+  - id: policy_event
+    name: "政策 / 环保限产"
+    weight: 3
+    bullish:  [环保限产, 能耗双控, 供给侧约束]
+    bearish:  [政策打压, 抛储, 产能放开]
+    news_keywords: [环保, 限产, 能耗双控, 抛储, 供给侧, 碳中和]
+
+# ============================================================
+# 四、相关性闸门（与镍版一致：命中品种核心词 或 "限定词+锌产业词"组合）
+# ============================================================
 relevance:
-  cap_score: 5
   core_terms:
-  - 锌
-  - 不锈钢
-  - NPI
-  - 青山
-  - 华友
-  - 力勤
-  - 格林美
-  - 金川
-  - 嘉能可
-  - 淡水河谷
-  - 诺里尔斯克
-  - 住友
-  - 太钢
-  - 德龙
-  - 寒锐
-  - RKAB
-  combo:
-    any:
-    - 印尼
-    with_any:
-    - 矿
-    - 配额
-    - 出口
-    - 能矿部
-    - ESDM
-    - 冶炼
-    - 生产
-    - 禁
-    - 税
-    - 罢工
+    - 锌
+    - 锌精矿
+    - 锌矿
+    - 锌锭
+    - 锌合金
+    - 镀锌
+    - 镀锌板
+    - 压铸锌合金
+    - 氧化锌
+    - TC
+    - 加工费
+    - 株冶
+    - 中金岭南
+    - 驰宏锌锗
+    - 宏达
+    - 罗平锌电
+    - 锌业股份
+    - 白银有色
+    - 豫光金铅
+    - Glencore
+    - 嘉能可
+    - Teck
+    - 泰克
+    - 伦丁
+    - Lundin
+    - Nyrstar
+    - Boliden
+    - 秘鲁
+    - 玻利维亚
+    - 澳大利亚
+    - 锌矿
+    - LME锌
+    - SHFE锌
+    - 七地库存
+    - 广东0#锌
+  # 限定词组合（如"检修"+"锌"才算锌相关）
+  combos:
+    - [检修, 锌]
+    - [减产, 锌]
+    - [库存, 锌]
+    - [限产, 锌]
+    - [TC, 锌]
+  # 跨品种对比中允许的对照词（锌 vs 这些品种做相对强弱）
+  cross_terms: [铜, 铝, 铅, 镍, 锡, 有色]
 
+# ============================================================
+# 五、新闻分级（A/B/C 三级，复刻镍版结构）
+# ============================================================
 tiers:
+  # A级：直接定价、高确定性
   A:
+    name: "直接定价 / 高确定性"
     keywords:
-    - name: giants_disruption
-      weight: 15
-      contradiction: indonesia_supply
-      bias: neutral
-      tags:
-      - supply
-      - disruption
-      terms:
-      - Glencore
       - 嘉能可
-      - Vale
-      - 淡水河谷
-      - Tsingshan
-      - 青山
-      - Rio Tinto
-      - 力拓
-      - Shougan
-      - 寿贡
-      - HPAL
-      - 诺里尔斯克
-      - Norilsk
-      - Sumitomo
-      - 住友
-      - JX金属
-      - PT Vale
-      - 华友钴业
-      - 寒锐钴业
-      - 中伟股份
-      - 华友
-      - Centaurus
-
-    - name: china_zinc
-      weight: 12
-      contradiction: zinc_beans_substitution
-      bias: bearish
-      tags:
-      - supply
-      terms:
-      - 金川集团
-      - 金川国际
-      - 格林美
-      - 青山控股
-      - 宏桥集团
-      - 力勤资源
-      - 北方稀土
-      - 洛阳钼业
-      - 寒锐
-      - 德龙锌业
-      - 青美娜
-      - 新华都
-
-    - name: indonesia_zinc
-      weight: 14
-      contradiction: indonesia_supply
-      bias: neutral
-      tags:
-      - supply
-      terms:
-      - 印尼
-      - RKAB
-      - zinc ore
-      - 红土锌矿
-      - NPI
-      - RKE
-      - 高压酸浸
-      - 华越
-      - 华萃
-      - 新鑫
-      - 东方锌业
-      - 瑞诺
-      - PT Antam
-      - 印尼国有矿业
-      - 印尼锌矿出口
-      - 印尼禁矿
-      - 印尼出口税
-      - 印尼禁矿令
-      - ESDM
-      - 能矿部
-
-    - name: disruption
-      weight: 13
-      contradiction: lme_supply_tight
-      bias: bullish
-      tags:
-      - supply
-      - disruption
-      terms:
-      - 罢工
-      - 事故
-      - 火灾
-      - 爆炸
-      - 洪水
-      - 地震
-      - 禁令
-      - 出口限制
-      - 关税
-      - 环保督查
-      - 限产
-      - 停产整顿
-      - 安全检查
-      - 电力短缺
-      - 限电
-      - 制裁
-      - 出口禁令
-      - 港口堵塞
-
+      - 泰克
+      - 伦丁
+      - 秘鲁
+      - 玻利维亚
+      - 锌精矿TC
+      - 锌精矿基准
+      - 长单TC
+      - 矿山减产
+      - 矿端扰动
+      - 冶炼厂检修
+      - 冶炼利润转亏
+      - 被迫减产
+      - 镀锌板排产
+      - 七地库存
+      - 社会库存大幅下降
+      - 环保限产
+      - 能耗双控
+      - 广东0#锌升贴水
+    weight: 3.0
+  # B级：间接受影响 / 情绪驱动
   B:
+    name: "间接受影响 / 情绪"
     keywords:
-    - name: stainless_steel
-      weight: 10
-      contradiction: stainless_cyclical
-      bias: neutral
-      tags:
-      - demand
-      terms:
-      - 不锈钢
-      - 冷轧排产
-      - 热轧排产
-      - 304不锈钢
-      - 201不锈钢
-      - 不锈钢厂
-      - 太钢不锈
-      - 青山不锈钢
-
-    - name: battery_zinc
-      weight: 10
-      contradiction: battery_vs_stainless
-      bias: neutral
-      tags:
-      - demand
-      - battery
-      terms:
-      - 电池锌
-      - 硫酸锌
-      - 三元材料
-      - 三元正极
-      - 高锌
-      - NCM811
-      - 正极材料
-      - 前驱体
-      - 锌钴锰
-      - LFP
-      - 磷酸铁锂
-      - 电池级硫酸锌
-
-    - name: institutions
-      weight: 7
-      contradiction: stainless_cyclical
-      bias: neutral
-      tags:
-      - policy
-      terms:
-      - ILZSG
-      - 国际锌研究小组
-      - INSG
-      - 中国有色金属工业协会
-      - 发改委
-      - 工信部
-      - AMM
-      - 亚洲金属
-
-    - name: project_news
-      weight: 9
-      contradiction: indonesia_supply
-      bias: neutral
-      tags:
-      - project
-      terms:
-      - 新矿项目
-      - 勘探
-      - 可研报告
-      - 采矿权
-      - 并购
-      - 收购
-      - 合资
-      - 一期投产
-      - 二期扩产
-      - 尾矿
-      - 选矿厂
-      - 意向函
-      - BNDES
-      - 审批通过
-
-    - name: cost_production
-      weight: 8
-      contradiction: zinc_beans_substitution
-      bias: neutral
-      tags:
-      - cost
-      - capacity
-      terms:
-      - 减产
-      - 停产
-      - 复产
-      - 扩产
-      - 新增产能
-      - 投产
-      - 达产
-      - 成本倒挂
-      - 亏损
-      - 加工费
-      - 冶炼利润
-      - 矿山成本
-      - 开工率下降
-      - 利用率下降
-      - 设备检修
-      - TC下调
-
-    - name: lme_inventory
-      weight: 11
-      contradiction: lme_supply_tight
-      bias: neutral
-      tags:
-      - supply
-      - inventory
-      terms:
-      - LME库存
-      - 注册仓单
-      - 注销仓单
-      - 仓单注销率
-      - 精炼锌库存
-      - SHFE仓单
-      - 社会库存
-
-    - name: price_ratio
-      weight: 9
-      contradiction: price_ratio
-      bias: neutral
-      tags:
-      - price
-      - ratio
-      terms:
-      - 沪锌
-      - 伦锌
-      - 比价
-      - 进口窗口
-      - 进口利润
-      - 内外盘价差
-      - 锌豆升贴水
-      - 电解锌溢价
-
+      - 基建
+      - 地产政策
+      - 稳增长
+      - 降息
+      - 美元指数
+      - LME注销仓单
+      - 沪伦比
+      - 进口盈亏
+      - 表观消费
+      - 压铸锌合金开工
+      - 氧化锌
+      - 库存季节性
+      - 技术突破
+    weight: 1.5
+  # C级：噪音 / 弱相关
   C:
+    name: "噪音 / 弱相关"
     keywords:
-    - name: macro_noise
-      weight: 0
-      contradiction: macro
-      bias: neutral
-      tags:
-      - macro
-      terms:
-      - GDP
-      - 美联储
-      - CPI
-      - PMI
-      - 通胀
+      - 纯商品普涨
+      - 地缘(非矿端)
+      - 个股异动(非产业)
+      - 旧闻
+      - 重复报道
+      - 资金面纯炒作
+    weight: 0.5
 
-    - name: technical_noise
-      weight: 0
-      contradiction: technical
-      bias: neutral
-      tags:
-      - technical
-      terms:
-      - 技术面
-      - K线
-      - MACD
-      - 金叉
-      - 死叉
-      - 均线
-      - 支撑位
-      - 阻力位
-      - 布林带
-
+# ============================================================
+# 六、负向过滤（与镍版一致：纯噪音/无关/旧闻不引用）
+# ============================================================
 negative_filters:
-- 技术面
-- K线
-- MACD
-- 金叉
-- 死叉
-- 均线
-- 支撑位
-- 阻力位
-- 布林带
-- 布林线
-- GDP
-- 美联储
-- CPI
-- PMI
-- 通胀
-- 现货报价
-- 最新报价
-- 结算价
-- 夜盘收盘
-- 夜盘开盘
-- 锌现货报价
-- 金川集团电解锌出厂
-- 锌钴中间品价格
+  - 纯政治事件（与锌供需无关）
+  - 与锌无关的商品（如纯原油/黄金独立行情）
+  - 个股非产业异动
+  - 1周前的旧闻（除非被新事件激活）
+  - 重复/洗稿报道
+  - 纯技术面/资金面（无基本面支撑）
 
+# ============================================================
+# 七、刷新与评价
+# ============================================================
 refresh:
-  interval_days: 30
-  last_refresh: '2026-08-16'
-  next_refresh: '2026-09-15'
-
+  scorer: scorer_v2_zn.py
+  cadence: 与 data.json 同步（每30min）
+  ranking: 20套Prompt评分排名（问财 vs 本地AI 对比）
 review_log:
-- date: '2026-08-11'
-  action: auto_generated
-  reviewer: agent
-  notes: 基于 commodity-core-indicator-extraction 自动生成
-- date: '2026-08-11'
-  action: upgrade_v2
-  reviewer: agent
-  notes: "v2: 新增 contradiction/bias 字段, 支持矛盾权重+多空方向评分"
-- date: '2026-08-16'
-  action: unification_v3
-  reviewer: agent
-  notes: "v3: 统一打分单一来源(scorer_v2.py)。新增 relevance 相关性闸门, 修复'哥伦比亚强震'类无关新闻借地震词虚高19分霸榜问题; 全部取数路径(fetch_data/fetch_zinc/analyze/update_data)统一走本配置"
+  - date: "2026-08-17"
+    author: "YAQH / CodeBuddy"
+    change: "从 nickel_scoring.yaml 复刻为锌框架：symbol→Zn；重写 contradictions(8大锌矛盾)、core_terms、tiers、negative_filters；保留镍版键名结构以保证 data.json 兼容"
+    note: "domain 内容基于交接文档 ZINC_HANDOFF.md 第7-9节 + 标准锌基本面；嘉能可/泰克/伦丁等矿端权重高，镀锌需求为消费主线"
