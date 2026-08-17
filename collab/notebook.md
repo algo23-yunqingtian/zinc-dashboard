@@ -30,3 +30,8 @@
 - action: add | target: fetch_zn.py:main -> data["active_contradictions"]
 - desc: 每次流水线写入实时矛盾种子字段（structured+formatted），供前端 A/B 图表自动重排消费。
 - note: 以上三处为本地改动，待用户确认后由本 agent push；新闻拉取/AI文本/部署仍依赖 Hermes 的密钥与服务器。zhiji 新闻 API 严格限流，勿频繁调用。
+
+### [2026-08-17 14:34] CODEBUDDY · ADD
+- target: collab/log.py:add_entry
+- desc: 绔埌绔獙璇佸叡浜瑪璁版湰杩藉姞鎺ュ彛鍙敤
+- note: Hermes 渚у彲鐢ㄥ悓鏂瑰紡杩藉姞/璇诲彇锛屾棤闇€ git CLI
