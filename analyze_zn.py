@@ -317,7 +317,7 @@ def build_prompt(charts, news, reports):
 
 ### 国内库存
 - 国内8省锌锭库存: {fmt(b5_18,"万吨")}（变化:{trend_str(b5_18_t)}）
-- 锌锭现货库存(中国日度): {fmt(b6,"万吨")}（变化:{trend_str(b6_t)}）
+- 锌锭现货库存(中国日度): {fmt(b5_27,"万吨")}（变化:{trend_str(b5_27_t)}）
 
 ### 矿端与冶炼供给
 - 进口锌精矿TC: {fmt(b6,"美元/干吨")}（变化:{trend_str(b6_t)}，下行=矿紧=利多）
