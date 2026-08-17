@@ -9,6 +9,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import scorer_v2_zn as scorer_v2
 import analyze_zn as analyze
+# L2 矛盾引擎（实时识别，产出 active_contradictions 供前端自动重排消费）
+from contradiction_engine import run_engine, format_for_prompt
 
 # ── Config ──
 # Load .env if present (for local dev; GitHub Actions uses secrets)
@@ -51,10 +53,16 @@ DATA_IDS = {
     "china_inv":"ID00188329",
     # 供给
     "chinese_prod":"ID01510883","chinese_rate":"ID01167334",
+    # 再生/原生锌产量(月, mysteel)
+    "recycle_prod":"ID01510884","primary_prod":"ID01510877",
     # 锌矿TC (矿端核心指标)
     "zinc_conc_tc":"ID00188151","zinc_conc_tc_high":"ID00188150",
+    # 矿端供给(月, ILZSG/mysteel) — 矿端集中度代理源
+    "mine_global_prod":"ID00299372","mine_china_prod":"ID01001563",
     # 需求
     "galvanized_prod":"ID00187499","zinc_alloy_rate":"ID01002076",
+    # 镀锌开工率(周, mysteel)
+    "galvanized_rate":"ID00366835",
     "apparent_cons":"ID01167427",
     # 进口盈亏
     "import_profit_tax":"ID01030236","import_profit_notax":"ID01030238",
@@ -411,13 +419,13 @@ def akshare_fallback():
         # ── LME funding rate (approximate from LME price changes) ──
         # B13: lme_funding - not directly available, skip for now
 
-        # ── 广东0#锌锭升贴水 (B14) ──
+        # ── Stainless steel cold rolling (B14) ──
         # Not directly available via akshare, skip
 
-        # ── 表观消费 (B10) ──
+        # ── zinc sulfate price (B10) ──
         # Not directly available via akshare, skip
 
-        # ── 镀锌板产量 (B8/B9) ──
+        # ── Indonesia production (B8/B9) ──
         # Not directly available via akshare, skip
 
         # ── Import window / ratio (A2, B4) ──
@@ -467,13 +475,22 @@ def fetch_news():
         print("  Fetching news from Zhiji 讯服务...")
         news_url = f"{NEWS_BASE}/search?q={urllib.parse.quote('锌')}&hours=48&limit=30&source=all"
         zhiji_news = api_get(news_url, "X-News-Key", NEWS_KEY)
-        if zhiji_news and isinstance(zhiji_news, dict) and "items" in zhiji_news:
-            for n in zhiji_news["items"]:
-                content = n.get("content", "")
-                title = n.get("title", "")[:80]
-                _add(title, content, _SOURCE_MAP.get(n.get("source", "all"), n.get("source", "all")),
-                     n.get("time", ""), n.get("url", ""))
-            print(f"  Zhiji 讯服务: got {len(items)} news items for 锌")
+        # 兼容多种响应结构: {items:[...]} / {data:[...]} / {list:[...]} / 裸数组
+        if isinstance(zhiji_news, dict):
+            _nl = (zhiji_news.get("items") or zhiji_news.get("data")
+                   or zhiji_news.get("list") or zhiji_news.get("results") or [])
+        elif isinstance(zhiji_news, list):
+            _nl = zhiji_news
+        else:
+            _nl = []
+        for n in (_nl or []):
+            if not isinstance(n, dict):
+                continue  # 跳过非 dict 元素（避免 'str' object has no attribute 'get'）
+            content = n.get("content", n.get("body", ""))
+            title = n.get("title", n.get("headline", ""))[:80]
+            _add(title, content, _SOURCE_MAP.get(n.get("source", "all"), n.get("source", "all")),
+                 n.get("time", n.get("published_at", "")), n.get("url", ""))
+        print(f"  Zhiji 讯服务: got {len(items)} news items for 锌")
     except Exception as e:
         print(f"  Zhiji 讯服务 fetch failed: {e}")
 
@@ -486,16 +503,24 @@ def fetch_news():
                     break
                 news_url = f"{NEWS_BASE}/search?q={urllib.parse.quote(keyword)}&hours=48&limit=15&source=all"
                 zhiji_news = api_get(news_url, "X-News-Key", NEWS_KEY)
-                if zhiji_news and isinstance(zhiji_news, dict) and "items" in zhiji_news:
-                    for n in zhiji_news["items"]:
-                        title = n.get("title", "")[:80]
-                        if not title or title in seen:
-                            continue
-                        _add(title, n.get("content", ""),
-                             _SOURCE_MAP.get(n.get("source", "all"), n.get("source", "all")),
-                             n.get("time", ""), n.get("url", ""))
-                        seen.add(title)
-            print(f"  补充搜索: total {len(items)} items")
+                if isinstance(zhiji_news, dict):
+                    _nl2 = (zhiji_news.get("items") or zhiji_news.get("data")
+                            or zhiji_news.get("list") or zhiji_news.get("results") or [])
+                elif isinstance(zhiji_news, list):
+                    _nl2 = zhiji_news
+                else:
+                    _nl2 = []
+                for n in (_nl2 or []):
+                    if not isinstance(n, dict):
+                        continue
+                    title = n.get("title", n.get("headline", ""))[:80]
+                    if not title or title in seen:
+                        continue
+                    _add(title, n.get("content", n.get("body", "")),
+                         _SOURCE_MAP.get(n.get("source", "all"), n.get("source", "all")),
+                         n.get("time", n.get("published_at", "")), n.get("url", ""))
+                    seen.add(title)
+                print(f"  补充搜索: total {len(items)} items")
         except Exception as e:
             print(f"  补充搜索 failed: {e}")
 
@@ -595,15 +620,15 @@ def gen_analysis(charts):
     lme_inv = last_val(charts.get("A1_lme_inventory",{}).get("inventory",[]))
     inv18 = last_val(charts.get("B5_china_inventory",{}).get("inv_18",[]))
     # B6槽位=锌精矿TC(元/吨·湿法), B7=进口盈亏(元/吨, 负值=亏损)
-    tc = last_val(charts.get("B6_bean_inventory",[]))
+    tc = last_val(charts.get("B6_zinc_concentrate_tc",[]))
     import_pft = last_val(charts.get("B7_smelting_profit",[]))
     oi = last_val(charts.get("B3_shfe_oi",[]))
     # B9槽位: 镀锌板周产量(万吨) / 表观消费(万吨/月) / 锌合金开工率(%)
-    galv = last_val(charts.get("B9_galvanizing",{}).get("galv_prod",[]))
+    galv = last_val(charts.get("B9_galvanizing",{}).get("galvanized_prod",[]))
     alloy_rate = last_val(charts.get("B9_galvanizing",{}).get("alloy_rate",[]))
     china_prod = last_val(charts.get("B8_china_production",{}).get("chinese_prod",[]))
     app_cons = last_val(charts.get("B12_apparent_consumption",[]))
-    premium = last_val(charts.get("B14_premium",{}).get("premium",[]))
+    premium = last_val(charts.get("B14_premium",{}).get("guangdong_premium",[]))
     ratio = last_val(charts.get("B4_ratio",[]))
     fundamentals = []
     if shfe: fundamentals.append(f"沪锌 {shfe}元/吨")
@@ -813,9 +838,11 @@ def main():
         # 矿端 (锌核心矛盾: 锌精矿TC)
         "zinc_conc_tc","zinc_conc_tc_high",
         # 供给
-        "chinese_prod","chinese_rate",
+        "chinese_prod","chinese_rate","recycle_prod","primary_prod",
         # 需求
-        "galvanized_prod","zinc_alloy_rate","apparent_cons",
+        "galvanized_prod","zinc_alloy_rate","apparent_cons","galvanized_rate",
+        # 矿端供给(集中度代理)
+        "mine_global_prod","mine_china_prod",
         # 进口
         "import_profit_tax","import_profit_notax","import_ratio_tax","import_ratio_notax",
         # 升贴水
@@ -919,18 +946,18 @@ def main():
         "lme_cancelled":"A1_lme_inventory:cancelled","shfe_lme_ratio":"B4_ratio",
         "import_profit_notax":"A2_import_window:magma_discount",
         "import_ratio_notax":"A2_import_window:import_ratio",
-        "zinc_conc_tc":"A3_conc_tc:conc_tc","shfe_zn_settle":"A3_conc_tc:shfe_settle",
+        "zinc_conc_tc":"A3_substitution:zinc_bean","shfe_zn_settle":"A3_substitution:shfe_settle",
         "lme_zn_settle":"B2_lme_price","shfe_oi":"B3_shfe_oi",
         "import_profit_tax":"A4_smelting_pressure:profit","china_inv":"A4_smelting_pressure:inv_18",
-        "zinc_conc_tc":"B6_bean_inventory","import_profit_notax":"B7_smelting_profit",
+        "zinc_conc_tc":"B6_zinc_concentrate_tc","import_profit_notax":"B7_smelting_profit",
         "chinese_prod":"B8_china_production:chinese_prod","chinese_rate":"B8_china_production:chinese_cap",
-        "galvanized_prod":"B9_galvanizing:galv_prod","apparent_cons":"B9_galvanizing:apparent_cons",
-        "zinc_alloy_rate":"B9_galvanizing:alloy_rate","apparent_cons":"B10_apparent",
+        "galvanized_prod":"B9_galvanizing:galvanized_prod","apparent_cons":"B9_galvanizing:apparent_cons",
+        "zinc_alloy_rate":"B9_galvanizing:alloy_rate","apparent_cons":"B10_sulfate_price",
         "lme_cancelled":"B11_lme_flow:outflow","lme_registered":"B11_lme_flow:inflow",
         "apparent_cons":"B12_apparent_consumption",
         "lme_position":"B13_lme_funding:position","lme_fund_long":"B13_lme_funding:fund_long",
         "lme_commercial_long":"B13_lme_funding:comm_long","lme_commercial_short":"B13_lme_funding:comm_short",
-        "guangdong_premium":"B14_premium:premium",
+        "guangdong_premium":"B14_premium:guangdong_premium",
     }
     for sid in failed:
         m = mapping.get(sid, "")
@@ -946,7 +973,7 @@ def main():
                 print(f"  RESTORED {sid} from previous data.json ({len(prev_data)} points)")
                 failed.remove(sid)
 
-    # Assemble charts — 锌专属 18 图 (前端槽位名保持不变, 标题在 charts.js 锌化)
+    # Assemble charts (锌专属 18 图；槽位名已锌化：B6=锌精矿TC, B9=镀锌/合金, B14=广东升贴水)
     charts = {
         # 价格
         "B1_shfe_price": results.get("shfe_zn_settle"), "B2_lme_price": results.get("lme_zn_settle"),
@@ -957,19 +984,19 @@ def main():
         "A2_import_window": {"shfe_lme_ratio":results.get("shfe_lme_ratio"),
             "magma_discount":results.get("import_profit_notax"), "import_ratio":results.get("import_ratio_notax")},
         # 矿端: 锌精矿TC (锌核心矛盾) + 沪锌价
-        "A3_conc_tc": {"conc_tc":results.get("zinc_conc_tc"), "shfe_settle":results.get("shfe_zn_settle")},
+        "A3_substitution": {"zinc_bean":results.get("zinc_conc_tc"), "shfe_settle":results.get("shfe_zn_settle"), "mine_global_prod":results.get("mine_global_prod"), "mine_china_prod":results.get("mine_china_prod")},
         # 冶炼压力: 进口成本(元/吨) + 国内库存
         "A4_smelting_pressure": {"profit":results.get("import_profit_tax"), "inv_18":results.get("china_inv"), "inv_27":results.get("china_inv"), "bean_inv":[]},
         # 国内库存
         "B5_china_inventory": {"inv_18":results.get("china_inv"), "inv_27":results.get("china_inv")},
         # 矿端TC + 进口盈亏
-        "B6_bean_inventory": results.get("zinc_conc_tc"), "B7_smelting_profit": results.get("import_profit_notax"),
+        "B6_zinc_concentrate_tc": results.get("zinc_conc_tc"), "B7_smelting_profit": results.get("import_profit_notax"),
         # 供给: 精炼锌产量 + 产能利用率
-        "B8_china_production": {"chinese_prod":results.get("chinese_prod"), "chinese_cap":results.get("chinese_rate")},
+        "B8_china_production": {"chinese_prod":results.get("chinese_prod"), "chinese_cap":results.get("chinese_rate"), "recycle_prod":results.get("recycle_prod"), "primary_prod":results.get("primary_prod")},
         # 需求: 镀锌板产量 + 表观消费 + 锌合金开工率
-        "B9_galvanizing": {"galv_prod":results.get("galvanized_prod"), "apparent_cons":results.get("apparent_cons"), "alloy_rate":results.get("zinc_alloy_rate")},
+        "B9_galvanizing": {"galvanized_prod":results.get("galvanized_prod"), "apparent_cons":results.get("apparent_cons"), "alloy_rate":results.get("zinc_alloy_rate"), "galvanized_rate":results.get("galvanized_rate")},
         # 表观消费
-        "B10_apparent": results.get("apparent_cons"),
+        "B10_sulfate_price": results.get("apparent_cons"),
         # LME流向: 注册仓单(入库) + 注销仓单(出库)
         "B11_lme_flow": {"outflow":results.get("lme_cancelled"), "inflow":results.get("lme_registered")},
         # 表观消费
@@ -978,7 +1005,7 @@ def main():
         "B13_lme_funding": {"position":results.get("lme_position"), "fund_long":results.get("lme_fund_long"),
             "comm_long":results.get("lme_commercial_long"), "comm_short":results.get("lme_commercial_short")},
         # 现货升贴水: 广东0#锌锭升贴水
-        "B14_premium": {"premium":results.get("guangdong_premium")},
+        "B14_premium": {"guangdong_premium":results.get("guangdong_premium")},
     }
 
     # ── 数据来源溯源 (回答"是否都来自 Zhiji?"：否，宏观/兜底来自 akshare) ──
@@ -1028,17 +1055,49 @@ def main():
 
     # News (相关性闸门: 过滤与锌无关的新闻, 与实时链路同标准)
     print("Fetching news...")
-    news = [n for n in fetch_news() if n.get("relevant", True)]
-    news = news[:20]
+    try:
+        news = [n for n in fetch_news() if n.get("relevant", True)]
+        news = news[:20]
+    except Exception as e:
+        print(f"  fetch_news FAILED: {e}")
+        news = []
 
     # Extract A-level news highlights for summary
-    news_a = [n for n in news if n.get("level") == "A"]
-    news_b = [n for n in news if n.get("level") == "B"]
-    news_highlights = news_a[:5] + news_b[:5]
+    try:
+        news_a = [n for n in news if n.get("level") == "A"]
+        news_b = [n for n in news if n.get("level") == "B"]
+        news_highlights = news_a[:5] + news_b[:5]
+    except Exception as e:
+        print(f"  news highlight extract FAILED: {e}")
+        news_highlights = []
 
     # Analysis
     print("Generating analysis...")
-    analysis = gen_analysis(charts)
+    try:
+        analysis = gen_analysis(charts)
+    except Exception as e:
+        print(f"  gen_analysis FAILED: {e}")
+        analysis = {"fundamental_summary": "【基本面快照】 基本面分析生成失败",
+                    "bull_logic": ["暂无明确利多驱动"], "bear_logic": ["暂无明确利空驱动"],
+                    "rule_direction": "中性",
+                    "updated_at": now.strftime("%Y-%m-%d %H:%M:%S")}
+
+    # ── L4 种子：实时矛盾（供前端按强度自动重排/高亮 A/B 图表）──
+    try:
+        _contra = run_engine(charts, news=news)
+        # 去掉大体积 series 字段，保留结构化元数据，控制 data.json 体积
+        _contra_lean = [{k: v for k, v in c.items() if k != "series"} for c in _contra]
+        active_contradictions = {
+            "structured": _contra_lean,
+            "formatted": format_for_prompt(_contra),
+            "count": len(_contra_lean),
+            "updated_at": now.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        print(f"  active_contradictions: {len(_contra_lean)} 条（已按底层序列去重）")
+    except Exception as e:
+        print(f"  active_contradictions FAILED: {e}")
+        active_contradictions = {"structured": [], "formatted": "（未识别到显著矛盾）",
+                                 "count": 0, "updated_at": now.strftime("%Y-%m-%d %H:%M:%S")}
 
     # 宏观与有色板块层 (P0) — 提前到 gen_ai 之前，供 V2 prompt 投喂
     print("Fetching macro/sector layer...")
@@ -1053,19 +1112,38 @@ def main():
 
     # AI
     print("Generating AI analysis...")
-    ai_text = gen_ai(charts, news, macro=macro)
+    try:
+        ai_text = gen_ai(charts, news, macro=macro)
+    except Exception as e:
+        print(f"  gen_ai FAILED: {e}")
+        ai_text = "AI请求失败：所有 API 均不可用"
 
     # Cross-check: rule vs AI
-    ai_dir = extract_ai_direction(ai_text)
-    cc = cross_check(analysis["rule_direction"], ai_dir, analysis["bull_logic"], analysis["bear_logic"], ai_text)
-    print(f"Cross-check: rule={analysis['rule_direction']} vs AI={ai_dir} → {cc['note']}")
+    try:
+        ai_dir = extract_ai_direction(ai_text)
+        cc = cross_check(analysis["rule_direction"], ai_dir, analysis["bull_logic"], analysis["bear_logic"], ai_text)
+        print(f"Cross-check: rule={analysis['rule_direction']} vs AI={ai_dir} → {cc['note']}")
+    except Exception as e:
+        print(f"  cross_check FAILED: {e}")
+        cc = {"rule_direction": analysis.get("rule_direction", "中性"), "ai_direction": "未知",
+              "conflict": False, "rule_bull_count": 0, "rule_bear_count": 0,
+              "ai_excerpt": "", "note": "交叉验证跳过(异常)"}
 
     # Prompt evaluation data (from zinc_prompt_eval)
-    prompt_data = load_prompt_data()
+    try:
+        prompt_data = load_prompt_data()
+    except Exception as e:
+    #   load_prompt_data 内部已有 try，此处再兜一层，防 JSON/IO 异常冒泡
+        print(f"  load_prompt_data FAILED: {e}")
+        prompt_data = {'rankings': [], 'iwencai_output': '', 'local_output': '', 'diffs': [], 'key_finding': ''}
 
     # 当前 prompt 版本元数据（供前端展示）
-    from analyze_zn import get_active_prompt_version, build_prompt_v2
-    active_ver = get_active_prompt_version()
+    try:
+        from analyze_zn import get_active_prompt_version
+        active_ver = get_active_prompt_version()
+    except Exception as e:
+        print(f"  prompt version import FAILED: {e}")
+        active_ver = "v2"
     prompt_versions = {
         "active": active_ver,
         "versions": [
@@ -1079,12 +1157,14 @@ def main():
             "news": {"items": news, "highlights": news_highlights, "updated_at": now.strftime("%Y-%m-%d %H:%M:%S")},
             "analysis": analysis, "ai_analysis": ai_text, "cross_check": cc, "realtime": realtime,
             "prompt_data": prompt_data, "macro": macro,
+            "active_contradictions": active_contradictions,
             "prompt_version": prompt_versions,
             "_updated_at": now.strftime("%Y-%m-%d %H:%M:%S")}
 
     out = os.environ.get("OUTPUT", "data.json")
     with open(out, "w") as f:
         json.dump(data, f, ensure_ascii=False)
+    print(f"✓ Written to {out} ({os.path.getsize(out)} bytes)")
 
 if __name__ == "__main__":
     main()
