@@ -1,62 +1,42 @@
-# 锌看板协作规则（v1.0 - 2026-08-10）
+# 锌看板协作规范 (COLLAB_RULES — 现实对齐版 v2)
 
-## 核心原则
+> 更新于 2026-08-17。本文取代旧版（旧版误把镍看板的"微信端/飞书端 Hermes"分工和 `fetch_data.py`/`proxy.py` 文件名照搬进来，与锌看板实际不符）。
 
-**单一主 Agent：微信端（"哈宝"）**
-- 后续所有开发、数据更新、push 都由微信端负责
-- 飞书端不再主动修改代码，除非微信端明确要求
+## 0. 协作模型（现实）
+- **两个 agent，一个真相源**：GitHub 仓库 `algo23-yunqingtian/zinc-dashboard` 的 `main` 分支 = 唯一 source of truth。本地永远是副本。
+- **CodeBuddy（YAQH 侧 / 本机 Windows）**：无 git CLI，全部走 GitHub Contents API（`collab/push.py` / `collab/log.py`）。负责：指标层理论、矛盾引擎逻辑、文档/协作机制、按用户授权可 push。
+- **Hermes（腾讯云 / 原"微信端"）**：有 git + 服务器（`/home/ubuntu/zinc_dashboard_gh/`），持有 Zhiji/腾讯云 DB/akshare 与 AI 密钥。负责：真实数据拉取、部署、AI 解盘、前端 `charts.js`。
+- **双方都可用 PAT push**（2026-08-17 用户授权，打破旧版"仅微信端 push"）。
 
-## 唯一工作目录
+## 1. 沟通总线（后台，不在看板 UI）
+- `collab/notebook.md`：共享笔记本，每次增删改追加一条（时间/agent/动作/目标/功能说明/沟通）。
+- `collab/log.py`：读写助手（`add`/`tail`，含并发冲突重试）。Windows 侧中文用 `--desc-file/--note-file`。
+- `collab/push.py`：无 git 推送助手（读 `GITHUB_TOKEN` 环境变量）。
+- `collab/verify_active_contradictions.py`：离线探针，检测"自动矛盾识别"是否真的接通 + 实跑引擎（见 §4）。
 
-```
-/home/ubuntu/zinc_dashboard_gh/    ← 唯一仓库
-```
-
-**其他目录已废弃**：
-- `/home/ubuntu/zinc_dashboard/` — 旧版 Flask 看板，已弃用
-- `/home/ubuntu/zinc_prompt_eval/` — Prompt 评估工具，数据已集成到 data.json
-- `/home/ubuntu/analysis/zinc_dashboard/` — 旧 HTML，已弃用
-
-## 文件分工（严格遵守）
-
-### 微信端负责（唯一）
-| 文件 | 职责 |
-|---|---|
-| `fetch_zn.py` | 数据抓取、data.json 生成 |
-| `proxy_zn.py` | AI 代理（SiliconFlow） |
-| `.env` | API Key（不在 git 里） |
-| `.github/workflows/fetch.yml` | GitHub Actions |
-| `data.json` | 唯一数据源，Actions 每 30min 更新 |
-| `static/charts.js` | 前端渲染逻辑 |
-
-### 飞书端禁止修改
-- ❌ `fetch_zn.py`
-- ❌ `proxy_zn.py`
-- ❌ `data.json`
-- ❌ `.github/workflows/`
-- ❌ `static/charts.js`（除非微信端要求）
-
-### 飞书端可以修改（需先问微信端）
-- `index.html` — 页面结构
-- `static/style.css` — 样式
-
-## Git 流程
-
-1. **微信端 push**：所有改动由微信端 commit + push
-2. **飞书端不直接 push**：有改动建议时发给微信端
-3. **data.json**：只有 Actions 更新，人工不 push
-
-## 访问地址
-
-| 版本 | 地址 | 说明 |
+## 2. 真实文件结构
+| 文件 | 作用 | 归属层 |
 |---|---|---|
-| 服务器版（主） | http://124.221.113.37:8766/zinc-gh/ | 实时 AI |
-| GitHub Pages | https://algo23-yunqingtian.github.io/zinc-dashboard/ | 缓存 AI |
+| `fetch_zn.py` | 抓数 + 新闻 + 流水线 main | 数据接入 |
+| `indicator_lib.py` | 指标层 L1：`SERIES_REGISTRY` + 方向/波动率/zscore/cusum | 指标层 |
+| `contradiction_engine.py` | 矛盾引擎 L2：rule/anomaly/divergence 三策略 + 去重 | 矛盾识别 |
+| `scorer_v2_zn.py` | 新闻评分 L3：噪音过滤 + 多空打分 + 相关性闸门 | 矛盾识别 |
+| `zinc_scoring.yaml` | 矛盾/指标/关键词配置（**克隆自 `nickel_scoring.yaml` 通用模板**） | 配置 |
+| `analyze_zn.py` + `analyze.py` | AI 解盘 prompt 链 | 产出 |
+| `charts.js` | 前端展示 / 自动重排 | 前端 |
+| `fetch.yml` | Actions 调度（每 30 分钟） | 部署 |
 
-## 当前版本状态
+## 3. 框架来源（重要：锌确实参考了镍/通用框架）
+- `zinc_scoring.yaml` 注释 `version: 2.0.0 = 首次从镍框架复刻为锌框架`，结构（core_indicators→contradictions→relevance→tiers→negative_filters→scoring→ranking）与 `nickel_scoring.yaml` **完全一致**，按锌产业链重命名。
+- `docs/zinc_frame.md` 克隆自镍的 `docs/analysis_frame.md`（镍仓库已 404，但结构已继承）。
+- 即：**"通用有色金属模板" = 镍的 scoring 结构**，锌是第二个应用者。镍的特征值（印尼 NPI/不锈钢）已替换为锌的特征值（矿端 TC/冶炼利润/镀锌/LME 挤仓）。
 
-- 5个Tab：A核心矛盾 / B基本面 / 实时资讯 / AI解盘 / Prompt工程
-- 14个图表（A1-A4, B1-B14）
-- AI解盘：服务器端实时，GitHub Pages 缓存
-- Prompt工程：20套Prompt评分排名 + 问财vs本地对比
-- 数据：Zhiji API + SMM新闻，Actions 每30min更新
+## 4. 当前已知缺口（Hermes 接手重点）
+1. **矛盾引擎未接线**：`fetch_zn.py:main` 未调用 `run_engine` 写 `active_contradictions`；`analyze_zn.py` 未注入 `format_for_prompt` 文本（`collab/verify_active_contradictions.py` 实测：`active_contradictions=False`，但引擎在真实 charts 上能识别 `anomaly_lme_canc`）。→ 接好这两处，自动矛盾识别即生效。
+2. **rule/divergence 策略数据不足**：当前 `data.json` 序列历史偏短，`prefilter` 丢弃短序列导致仅 1 条 anomaly 命中。需保留更长历史 / 调阈值让规则类矛盾也触发。
+3. **数据层镍残留**：`zinc_contradictions_screened.md` 记录的 `B9_indonesia`/`B14_stainless`/`A2.indonesia_npi_rate` 在 `indicator_lib` 的 SERIES_REGISTRY 已清为 `B9_galvanizing`/`B14_premium`，但 `data.json` 实际字段与 `charts.js`/`analyze_zn.py` 映射需全量核对一次。
+4. **密钥硬编码**：`GUAN_KEY/DATA_KEY/NEWS_KEY` 写死在 public 仓库，建议挪进 GitHub Actions Secrets / `.env`。
+
+## 5. 红线
+- **zhiji 新闻 API 严格限流**：勿频繁手动拉；生产保持 `fetch.yml` 每 30 分钟一次。`fetch_news` 一次内调 6 次 zhiji，触限流降频/减关键词。
+- token / 密钥绝不写进 `collab/notebook.md` 或任何仓库文件。
