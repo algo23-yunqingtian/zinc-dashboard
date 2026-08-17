@@ -110,6 +110,12 @@ def tail(token, n=20):
 
 
 def main():
+    # Windows 控制台默认 GBK，打印含 emoji/特殊字符的笔记本内容会报 UnicodeEncodeError；强制 stdout 为 UTF-8
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
     p = argparse.ArgumentParser(description="双 agent 共享笔记本助手")
     sub = p.add_subparsers(dest="cmd", required=True)
     pa = sub.add_parser("add", help="追加一条变更记录")
