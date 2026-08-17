@@ -4,6 +4,7 @@
 > 配套：collab/notebook.md（实时日志）、collab/HERMES_ONBOARDING.md（机制说明）、collab/screen_zinc.py（运维）
 
 ## 0. 一句话现状
+> 架构映射 / GitHub 各板块数据关联 / 权限边界矩阵 / AI 解盘产出变量穷举，详见 **docs/ARCHITECTURE.md**。
 矛盾识别引擎（contradiction_engine.py）**已完整接线**进流水线：
 - `fetch_zn.py:main`(1087行) 调 `run_engine` 写 `data.json.active_contradictions`（含 structured/formatted，供前端 A/B 自动重排）
 - `analyze_zn.py`(711-713行) 调 `run_engine` 并把 `format_for_prompt` 注入 V2 解盘 prompt
