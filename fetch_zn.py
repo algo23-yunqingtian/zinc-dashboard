@@ -411,13 +411,13 @@ def akshare_fallback():
         # ── LME funding rate (approximate from LME price changes) ──
         # B13: lme_funding - not directly available, skip for now
 
-        # ── Stainless steel cold rolling (B14) ──
+        # ── 广东0#锌锭升贴水 (B14) ──
         # Not directly available via akshare, skip
 
-        # ── zinc sulfate price (B10) ──
+        # ── 表观消费 (B10) ──
         # Not directly available via akshare, skip
 
-        # ── Indonesia production (B8/B9) ──
+        # ── 镀锌板产量 (B8/B9) ──
         # Not directly available via akshare, skip
 
         # ── Import window / ratio (A2, B4) ──
@@ -599,11 +599,11 @@ def gen_analysis(charts):
     import_pft = last_val(charts.get("B7_smelting_profit",[]))
     oi = last_val(charts.get("B3_shfe_oi",[]))
     # B9槽位: 镀锌板周产量(万吨) / 表观消费(万吨/月) / 锌合金开工率(%)
-    galv = last_val(charts.get("B9_indonesia",{}).get("indonesia_prod",[]))
-    alloy_rate = last_val(charts.get("B9_indonesia",{}).get("indonesia_rate",[]))
+    galv = last_val(charts.get("B9_galvanizing",{}).get("galv_prod",[]))
+    alloy_rate = last_val(charts.get("B9_galvanizing",{}).get("alloy_rate",[]))
     china_prod = last_val(charts.get("B8_china_production",{}).get("chinese_prod",[]))
     app_cons = last_val(charts.get("B12_apparent_consumption",[]))
-    premium = last_val(charts.get("B14_stainless",{}).get("cold_rolling",[]))
+    premium = last_val(charts.get("B14_premium",{}).get("premium",[]))
     ratio = last_val(charts.get("B4_ratio",[]))
     fundamentals = []
     if shfe: fundamentals.append(f"沪锌 {shfe}元/吨")
@@ -918,19 +918,19 @@ def main():
         "lme_inventory":"A1_lme_inventory:inventory","lme_registered":"A1_lme_inventory:registered",
         "lme_cancelled":"A1_lme_inventory:cancelled","shfe_lme_ratio":"B4_ratio",
         "import_profit_notax":"A2_import_window:magma_discount",
-        "import_ratio_notax":"A2_import_window:indonesia_npi_rate",
-        "zinc_conc_tc":"A3_substitution:zinc_bean","shfe_zn_settle":"A3_substitution:shfe_settle",
+        "import_ratio_notax":"A2_import_window:import_ratio",
+        "zinc_conc_tc":"A3_conc_tc:conc_tc","shfe_zn_settle":"A3_conc_tc:shfe_settle",
         "lme_zn_settle":"B2_lme_price","shfe_oi":"B3_shfe_oi",
         "import_profit_tax":"A4_smelting_pressure:profit","china_inv":"A4_smelting_pressure:inv_18",
         "zinc_conc_tc":"B6_bean_inventory","import_profit_notax":"B7_smelting_profit",
         "chinese_prod":"B8_china_production:chinese_prod","chinese_rate":"B8_china_production:chinese_cap",
-        "galvanized_prod":"B9_indonesia:indonesia_prod","apparent_cons":"B9_indonesia:indonesia_cap",
-        "zinc_alloy_rate":"B9_indonesia:indonesia_rate","apparent_cons":"B10_sulfate_price",
+        "galvanized_prod":"B9_galvanizing:galv_prod","apparent_cons":"B9_galvanizing:apparent_cons",
+        "zinc_alloy_rate":"B9_galvanizing:alloy_rate","apparent_cons":"B10_apparent",
         "lme_cancelled":"B11_lme_flow:outflow","lme_registered":"B11_lme_flow:inflow",
         "apparent_cons":"B12_apparent_consumption",
         "lme_position":"B13_lme_funding:position","lme_fund_long":"B13_lme_funding:fund_long",
         "lme_commercial_long":"B13_lme_funding:comm_long","lme_commercial_short":"B13_lme_funding:comm_short",
-        "guangdong_premium":"B14_stainless:cold_rolling",
+        "guangdong_premium":"B14_premium:premium",
     }
     for sid in failed:
         m = mapping.get(sid, "")
@@ -955,9 +955,9 @@ def main():
         "A1_lme_inventory": {"inventory":results.get("lme_inventory"), "registered":results.get("lme_registered"), "cancelled":results.get("lme_cancelled")},
         # 进口窗口: 沪伦比值 + 进口盈亏(元/吨) + 进口占比(%)
         "A2_import_window": {"shfe_lme_ratio":results.get("shfe_lme_ratio"),
-            "magma_discount":results.get("import_profit_notax"), "indonesia_npi_rate":results.get("import_ratio_notax")},
+            "magma_discount":results.get("import_profit_notax"), "import_ratio":results.get("import_ratio_notax")},
         # 矿端: 锌精矿TC (锌核心矛盾) + 沪锌价
-        "A3_substitution": {"zinc_bean":results.get("zinc_conc_tc"), "shfe_settle":results.get("shfe_zn_settle")},
+        "A3_conc_tc": {"conc_tc":results.get("zinc_conc_tc"), "shfe_settle":results.get("shfe_zn_settle")},
         # 冶炼压力: 进口成本(元/吨) + 国内库存
         "A4_smelting_pressure": {"profit":results.get("import_profit_tax"), "inv_18":results.get("china_inv"), "inv_27":results.get("china_inv"), "bean_inv":[]},
         # 国内库存
@@ -967,9 +967,9 @@ def main():
         # 供给: 精炼锌产量 + 产能利用率
         "B8_china_production": {"chinese_prod":results.get("chinese_prod"), "chinese_cap":results.get("chinese_rate")},
         # 需求: 镀锌板产量 + 表观消费 + 锌合金开工率
-        "B9_indonesia": {"indonesia_prod":results.get("galvanized_prod"), "indonesia_cap":results.get("apparent_cons"), "indonesia_rate":results.get("zinc_alloy_rate")},
+        "B9_galvanizing": {"galv_prod":results.get("galvanized_prod"), "apparent_cons":results.get("apparent_cons"), "alloy_rate":results.get("zinc_alloy_rate")},
         # 表观消费
-        "B10_sulfate_price": results.get("apparent_cons"),
+        "B10_apparent": results.get("apparent_cons"),
         # LME流向: 注册仓单(入库) + 注销仓单(出库)
         "B11_lme_flow": {"outflow":results.get("lme_cancelled"), "inflow":results.get("lme_registered")},
         # 表观消费
@@ -978,7 +978,7 @@ def main():
         "B13_lme_funding": {"position":results.get("lme_position"), "fund_long":results.get("lme_fund_long"),
             "comm_long":results.get("lme_commercial_long"), "comm_short":results.get("lme_commercial_short")},
         # 现货升贴水: 广东0#锌锭升贴水
-        "B14_stainless": {"cold_rolling":results.get("guangdong_premium")},
+        "B14_premium": {"premium":results.get("guangdong_premium")},
     }
 
     # ── 数据来源溯源 (回答"是否都来自 Zhiji?"：否，宏观/兜底来自 akshare) ──
@@ -1028,11 +1028,7 @@ def main():
 
     # News (相关性闸门: 过滤与锌无关的新闻, 与实时链路同标准)
     print("Fetching news...")
-    try:
-        news = [n for n in fetch_news() if n.get("relevant", True)]
-    except Exception as e:
-        print(f"[fetch] fetch_news failed: {e}")
-        news = []
+    news = [n for n in fetch_news() if n.get("relevant", True)]
     news = news[:20]
 
     # Extract A-level news highlights for summary
@@ -1042,12 +1038,7 @@ def main():
 
     # Analysis
     print("Generating analysis...")
-    try:
-        analysis = gen_analysis(charts)
-    except Exception as e:
-        print(f"[fetch] gen_analysis failed: {e}")
-        analysis = {"rule_direction": "未知", "bull_logic": "", "bear_logic": "",
-                    "signals": [], "error": f"gen_analysis: {e}"}
+    analysis = gen_analysis(charts)
 
     # 宏观与有色板块层 (P0) — 提前到 gen_ai 之前，供 V2 prompt 投喂
     print("Fetching macro/sector layer...")
@@ -1062,35 +1053,19 @@ def main():
 
     # AI
     print("Generating AI analysis...")
-    try:
-        ai_text = gen_ai(charts, news, macro=macro)
-    except Exception as e:
-        print(f"[fetch] gen_ai failed: {e}")
-        ai_text = "AI 分析生成失败（已记录，下一轮自动重试）。"
+    ai_text = gen_ai(charts, news, macro=macro)
 
     # Cross-check: rule vs AI
-    try:
-        ai_dir = extract_ai_direction(ai_text)
-        cc = cross_check(analysis["rule_direction"], ai_dir, analysis["bull_logic"], analysis["bear_logic"], ai_text)
-        print(f"Cross-check: rule={analysis['rule_direction']} vs AI={ai_dir} → {cc['note']}")
-    except Exception as e:
-        print(f"[fetch] cross_check failed: {e}")
-        cc = {"note": "交叉校验跳过（分析生成异常）", "error": str(e)[:200]}
+    ai_dir = extract_ai_direction(ai_text)
+    cc = cross_check(analysis["rule_direction"], ai_dir, analysis["bull_logic"], analysis["bear_logic"], ai_text)
+    print(f"Cross-check: rule={analysis['rule_direction']} vs AI={ai_dir} → {cc['note']}")
 
     # Prompt evaluation data (from zinc_prompt_eval)
-    try:
-        prompt_data = load_prompt_data()
-    except Exception as e:
-        print(f"[fetch] load_prompt_data failed: {e}")
-        prompt_data = {"error": str(e)[:200]}
+    prompt_data = load_prompt_data()
 
     # 当前 prompt 版本元数据（供前端展示）
-    try:
-        from analyze_zn import get_active_prompt_version, build_prompt_v2
-        active_ver = get_active_prompt_version()
-    except Exception as e:
-        print(f"[fetch] prompt version import failed: {e}")
-        active_ver = "v1"
+    from analyze_zn import get_active_prompt_version, build_prompt_v2
+    active_ver = get_active_prompt_version()
     prompt_versions = {
         "active": active_ver,
         "versions": [
