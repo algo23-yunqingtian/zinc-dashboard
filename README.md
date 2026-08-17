@@ -1,4 +1,4 @@
-# 锌(Ni)看板 v3.0
+# 锌(Zn)看板 v3.0
 
 [![Fetch Data](https://github.com/algo23-yunqingtian/zinc-dashboard/actions/workflows/fetch.yml/badge.svg)](https://github.com/algo23-yunqingtian/zinc-dashboard/actions/workflows/fetch.yml)
 
@@ -11,7 +11,7 @@
 
 | 功能 | 说明 |
 |---|---|
-| ⚡ A核心矛盾 | LME库存、进口窗口、锌豆替代、冶炼利润 vs 库存 |
+| ⚡ A核心矛盾 | LME库存、进口窗口、锌精矿TC、冶炼利润 vs 库存 |
 | 📊 B基本面 | 14张图表：SHFE/LME价格、持仓、沪伦比、库存、利润、产量、表观消费等 |
 | 📡 实时资讯 | SMM + Mysteel 新闻，A/B/C 分级 |
 | 🤖 AI解盘 | 服务器端实时调用 SiliconFlow Qwen2.5-72B，GitHub Pages 显示缓存 |
@@ -26,7 +26,7 @@
 │  (30min)    │     │  :8766       │     │  + data.json  │
 └─────────────┘     │              │     └──────────────┘
                     │  /api ──▶    │
-                    │  proxy.py    │────▶ SiliconFlow
+                    │  proxy_zn.py    │────▶ SiliconFlow
                     │  :8774       │
                     └──────────────┘
 ```
@@ -50,7 +50,7 @@ cp .env.example .env
 
 # 3. 启动 AI 代理
 pip install requests
-python proxy.py &
+python proxy_zn.py &
 
 # 4. 配置 Nginx（见 docs/collaboration.md）
 ```
