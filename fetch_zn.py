@@ -1028,7 +1028,11 @@ def main():
 
     # News (相关性闸门: 过滤与锌无关的新闻, 与实时链路同标准)
     print("Fetching news...")
-    news = [n for n in fetch_news() if n.get("relevant", True)]
+    try:
+        news = [n for n in fetch_news() if n.get("relevant", True)]
+    except Exception as e:
+        print(f"[fetch] fetch_news failed: {e}")
+        news = []
     news = news[:20]
 
     # Extract A-level news highlights for summary
@@ -1038,7 +1042,12 @@ def main():
 
     # Analysis
     print("Generating analysis...")
-    analysis = gen_analysis(charts)
+    try:
+        analysis = gen_analysis(charts)
+    except Exception as e:
+        print(f"[fetch] gen_analysis failed: {e}")
+        analysis = {"rule_direction": "未知", "bull_logic": "", "bear_logic": "",
+                    "signals": [], "error": f"gen_analysis: {e}"}
 
     # 宏观与有色板块层 (P0) — 提前到 gen_ai 之前，供 V2 prompt 投喂
     print("Fetching macro/sector layer...")
@@ -1053,19 +1062,35 @@ def main():
 
     # AI
     print("Generating AI analysis...")
-    ai_text = gen_ai(charts, news, macro=macro)
+    try:
+        ai_text = gen_ai(charts, news, macro=macro)
+    except Exception as e:
+        print(f"[fetch] gen_ai failed: {e}")
+        ai_text = "AI 分析生成失败（已记录，下一轮自动重试）。"
 
     # Cross-check: rule vs AI
-    ai_dir = extract_ai_direction(ai_text)
-    cc = cross_check(analysis["rule_direction"], ai_dir, analysis["bull_logic"], analysis["bear_logic"], ai_text)
-    print(f"Cross-check: rule={analysis['rule_direction']} vs AI={ai_dir} → {cc['note']}")
+    try:
+        ai_dir = extract_ai_direction(ai_text)
+        cc = cross_check(analysis["rule_direction"], ai_dir, analysis["bull_logic"], analysis["bear_logic"], ai_text)
+        print(f"Cross-check: rule={analysis['rule_direction']} vs AI={ai_dir} → {cc['note']}")
+    except Exception as e:
+        print(f"[fetch] cross_check failed: {e}")
+        cc = {"note": "交叉校验跳过（分析生成异常）", "error": str(e)[:200]}
 
     # Prompt evaluation data (from zinc_prompt_eval)
-    prompt_data = load_prompt_data()
+    try:
+        prompt_data = load_prompt_data()
+    except Exception as e:
+        print(f"[fetch] load_prompt_data failed: {e}")
+        prompt_data = {"error": str(e)[:200]}
 
     # 当前 prompt 版本元数据（供前端展示）
-    from analyze_zn import get_active_prompt_version, build_prompt_v2
-    active_ver = get_active_prompt_version()
+    try:
+        from analyze_zn import get_active_prompt_version, build_prompt_v2
+        active_ver = get_active_prompt_version()
+    except Exception as e:
+        print(f"[fetch] prompt version import failed: {e}")
+        active_ver = "v1"
     prompt_versions = {
         "active": active_ver,
         "versions": [
