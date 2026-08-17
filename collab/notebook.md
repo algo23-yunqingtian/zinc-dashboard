@@ -18,6 +18,11 @@
 
 ## 变更记录
 
+### [2026-08-17 19:40] CodeBuddy/YAQH侧 · 架构研究 + 权限边界澄清（修正"需Hermes git pull"误判）
+- action: research+doc | target: docs/ARCHITECTURE.md（新建）+ ROADMAP.md(引用)
+- desc: 研究本地↔GitHub映射(push.py用Contents API按路径PUT)、fetch.yml(每30min Actions跑fetch_zn)→写data.json→push→deploy.yml部署Pages。确认AI解盘在Actions自动跑(gen_ai→analyze.build_prompt_active默认v2→build_prompt_v2)，**push即≤30min自动生效，不需Hermes手动git pull**。整理权限矩阵(我能改提示词/引擎/配置并push生效；不能改secrets/ubuntu机器)与AI解盘产出7变量(数据/新闻/提示词/引擎/模型/权重/新鲜度)。
+- note: 修正前两条(18:10误报孤儿 / 19:20说"需Hermes重跑")——生产AI解盘是Actions自动，push即生效。模型顺序 zsun→DashScope→SiliconFlow, temperature=0.7, max_tokens=4096(fetch_zn.gen_ai内)。详见 docs/ARCHITECTURE.md。
+
 ### [2026-08-17 19:20] CodeBuddy/YAQH侧 · AI解盘强指令优化 + 根因澄清
 - action: modify | target: analyze_zn.py(_v2_prompt_template 加 contra_directive + build_prompt_v2 生成强指令) + docs/ROADMAP.md(§2.1)
 - desc: 用户反馈"改了引擎但 AI 解盘没变化"。定位根因：数据方向原本只注入辅助段(contra_inject)，模型主要信 18 指标数值段；且 AI 解盘部署在 Hermes ubuntu 服务器(ZSUN Qwen36_35B 主 / DashScope qwen3.7-max 备)，本机无 key 跑不了，需 git pull+重跑才生效。解法：V2 模板新增"机器强制方向指令"段，把 high-confidence 方向(direction≠0 & confidence≥0.6)以强指令注入，要求模型在结论优先采纳。本地 build_prompt_v2 实测注入成功。
