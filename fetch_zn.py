@@ -981,6 +981,43 @@ def main():
         "B14_stainless": {"cold_rolling":results.get("guangdong_premium")},
     }
 
+    # ── 数据来源溯源 (回答"是否都来自 Zhiji?"：否，宏观/兜底来自 akshare) ──
+    SID_SOURCE = {
+        "shfe_zn_settle":"Zhiji-Guan","lme_zn_settle":"Zhiji-料","shfe_oi":"Zhiji-Guan",
+        "lme_inventory":"Zhiji-料","lme_registered":"Zhiji-料","lme_cancelled":"Zhiji-料",
+        "china_inv":"Zhiji-料","zinc_conc_tc":"Zhiji-料","zinc_conc_tc_high":"Zhiji-料",
+        "chinese_prod":"Zhiji-料","chinese_rate":"Zhiji-料","galvanized_prod":"Zhiji-料",
+        "zinc_alloy_rate":"Zhiji-料","apparent_cons":"Zhiji-料",
+        "import_profit_tax":"Zhiji-料","import_profit_notax":"Zhiji-料",
+        "import_ratio_tax":"Zhiji-料","import_ratio_notax":"Zhiji-料",
+        "guangdong_premium":"Zhiji-料","shanghai_premium":"Zhiji-料",
+        "lme_position":"Zhiji-料","lme_fund_long":"Zhiji-料",
+        "lme_commercial_long":"Zhiji-料","lme_commercial_short":"Zhiji-料",
+    }
+    # akshare 兜底填充的 sid 标记为 akshare
+    _ak_sids = set(ak_fb.keys()) if 'ak_fb' in dir() and ak_fb else set()
+    chart_to_sids = {}
+    for _sid, _m in mapping.items():
+        _ck = _m.split(":")[0] if ":" in _m else _m
+        chart_to_sids.setdefault(_ck, []).append(_sid)
+    chart_sources = {}
+    for _ck in charts:
+        _sids = chart_to_sids.get(_ck, [])
+        _srcs = set()
+        for _s in _sids:
+            if _s in _ak_sids:
+                _srcs.add("akshare(兜底)")
+            else:
+                _srcs.add(SID_SOURCE.get(_s, "Zhiji"))
+        chart_sources[_ck] = "/".join(sorted(_srcs)) if _srcs else "Zhiji"
+    data_sources = {
+        "price_OI": "Zhiji-Guan API (zhiji-ai.xyz/guan) — ZN 日K线",
+        "series": "Zhiji-料 API (zhiji-ai.xyz/commodity) — 库存/TC/产量/升贴水/进口",
+        "news": "Zhiji-News API (zhiji-ai.xyz/news) — 关键词'锌'及产业链词",
+        "macro": "akshare — 美/中国债收益率、PMI（非 Zhiji）",
+        "fallback": "akshare — 当 Zhiji 不可用时兜底图表数据",
+    }
+
     # Realtime
     realtime = {}
     try:
@@ -1038,6 +1075,7 @@ def main():
     }
 
     data = {"charts": charts,
+            "data_sources": data_sources, "chart_sources": chart_sources,
             "news": {"items": news, "highlights": news_highlights, "updated_at": now.strftime("%Y-%m-%d %H:%M:%S")},
             "analysis": analysis, "ai_analysis": ai_text, "cross_check": cc, "realtime": realtime,
             "prompt_data": prompt_data, "macro": macro,
