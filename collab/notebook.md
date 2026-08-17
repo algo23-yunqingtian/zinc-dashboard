@@ -18,6 +18,11 @@
 
 ## 变更记录
 
+### [2026-08-17 19:20] CodeBuddy/YAQH侧 · AI解盘强指令优化 + 根因澄清
+- action: modify | target: analyze_zn.py(_v2_prompt_template 加 contra_directive + build_prompt_v2 生成强指令) + docs/ROADMAP.md(§2.1)
+- desc: 用户反馈"改了引擎但 AI 解盘没变化"。定位根因：数据方向原本只注入辅助段(contra_inject)，模型主要信 18 指标数值段；且 AI 解盘部署在 Hermes ubuntu 服务器(ZSUN Qwen36_35B 主 / DashScope qwen3.7-max 备)，本机无 key 跑不了，需 git pull+重跑才生效。解法：V2 模板新增"机器强制方向指令"段，把 high-confidence 方向(direction≠0 & confidence≥0.6)以强指令注入，要求模型在结论优先采纳。本地 build_prompt_v2 实测注入成功。
+- note: 模型未失效（失效会返回空/报错而非雷同文本）。代码已 push 到 main；要线上生效需 Hermes 重新跑 analyze_zn.py。详见 docs/ROADMAP.md §2.1。
+
 ### [2026-08-17 19:00] CodeBuddy/YAQH侧 · 数据代理方向层（矛盾识别不再依赖新闻措辞）
 - action: modify | target: zinc_scoring.yaml(contradictions[].signal) + contradiction_engine.py(_signal_direction + _strategy_rule 接 charts) + docs/ROADMAP.md
 - desc: 给 7 条数据可判矛盾加 signal{series,trend,direction} 配置；引擎新增 _signal_direction 用底层序列趋势补多空方向（新闻无方向时由数据兜底）。新建 docs/ROADMAP.md 总交接路线图。
