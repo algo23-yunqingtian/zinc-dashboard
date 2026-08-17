@@ -18,6 +18,11 @@
 
 ## 变更记录
 
+### [2026-08-17 19:00] CodeBuddy/YAQH侧 · 数据代理方向层（矛盾识别不再依赖新闻措辞）
+- action: modify | target: zinc_scoring.yaml(contradictions[].signal) + contradiction_engine.py(_signal_direction + _strategy_rule 接 charts) + docs/ROADMAP.md
+- desc: 给 7 条数据可判矛盾加 signal{series,trend,direction} 配置；引擎新增 _signal_direction 用底层序列趋势补多空方向（新闻无方向时由数据兜底）。新建 docs/ROADMAP.md 总交接路线图。
+- note: 实测本地快照：import_window(沪伦比↓→利空)、galvanizing_demand(镀锌产量↓→利空)、lme_squeeze(注销↑→利空) 由数据正确判出；tc/smelt_profit 快照 len=0(线上填满即生效)；inv_18 实为累库故不触发利多=正确行为。data vs news 结论：数据独立即可发现矛盾+方向，新闻仅贴语义标签。详见 docs/ROADMAP.md。
+
 ### [2026-08-17 18:40] CodeBuddy/YAQH侧 · lean 运维 + 框架澄清 + 接线误报更正
 - action: add+verify | target: collab/screen_zinc.py, collab/notebook.md
 - desc: 新增 token 极省运维脚本 collab/screen_zinc.py（纯本地0次Zhiji调用）：--explain 打印9条矛盾框架 / 空参跑引擎出实时命中 / --regen 用本地charts重算写回data.json。并用 --regen 刷新本地快照。
