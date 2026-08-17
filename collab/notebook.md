@@ -18,10 +18,10 @@
 
 ## 变更记录
 
-### [2026-08-17 18:10] CodeBuddy/YAQH侧 · 框架调研 + 文档现实对齐 + 引擎接线缺口定位
-- action: research+doc | target: COLLAB_RULES.md, collab/PROTOCOL.md, docs/collaboration.md, collab/verify_active_contradictions.py, collab/notebook.md
-- desc: 调研确认锌框架克隆自镍通用模板(nickel_scoring.yaml)；重写三份旧文档纠正"镍照搬"错误；新增离线探针；并定位"自动矛盾识别"当前缺口=引擎未接线。
-- note: 实测 data.json 有 18 个 charts 槽位但 active_contradictions=False；run_engine 在真实数据上跑通并识别 anomaly_lme_canc(利空)1条，schema合规。rule/divergence 因序列历史短(prefilter丢弃)仅1命中。结论：机器能跑，差"接线"(fetch_zn.py:main写字段 + analyze注入format_for_prompt)与更长历史。详见 COLLAB_RULES.md §4。
+### [2026-08-17 18:40] CodeBuddy/YAQH侧 · lean 运维 + 框架澄清 + 接线误报更正
+- action: add+verify | target: collab/screen_zinc.py, collab/notebook.md
+- desc: 新增 token 极省运维脚本 collab/screen_zinc.py（纯本地0次Zhiji调用）：--explain 打印9条矛盾框架 / 空参跑引擎出实时命中 / --regen 用本地charts重算写回data.json。并用 --regen 刷新本地快照。
+- note: **纠正前一条 18:10 误报**：搜索工具抽风读空壳目录，误判"引擎孤儿/未接线"。实测 fetch_zn.py:main(1087行)已调run_engine写active_contradictions(1160行)、analyze_zn.py(711-713行)已注入format_for_prompt。**接线早已完成**。本地 data.json 旧快照曾显False(旧版生成)，--regen 后写回7条、verify 现 STATE=True。引擎实跑筛选结果：1条[anomaly]lme_canc利空(强度1.0) + 6条[rule]新闻命中(矿端TC/冶炼/进口/镀锌/库存/政策)。divergence 0命中=需更长历史+校准锌特有配对阈值。详见 collab/screen_zinc.py 输出。
 
 ### [2026-08-17 17:30] CodeBuddy/YAQH侧 · PUSH 三处框架改动至 main
 - action: push | target: fetch_zn.py, contradiction_engine.py, collab/log.py, collab/notebook.md, collab/push.py, collab/HERMES_ONBOARDING.md
