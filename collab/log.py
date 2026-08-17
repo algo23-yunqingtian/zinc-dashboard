@@ -122,8 +122,10 @@ def main():
     pa.add_argument("--agent", required=True, help="agent 名，如 CODEBUDDY / HERMES")
     pa.add_argument("--action", required=True, choices=["add", "remove", "modify"])
     pa.add_argument("--target", required=True, help="文件:函数 或 文件")
-    pa.add_argument("--desc", required=True, help="功能说明")
+    pa.add_argument("--desc", default="", help="功能说明（也可 --desc-file 从文件读，避免 Windows 中文乱码）")
+    pa.add_argument("--desc-file", help="从文件读取 desc 原文（UTF-8，推荐用于中文）")
     pa.add_argument("--note", default="", help="自由沟通内容")
+    pa.add_argument("--note-file", help="从文件读取 note 原文（UTF-8）")
     pt = sub.add_parser("tail", help="查看最近 n 条")
     pt.add_argument("--n", type=int, default=20)
     sub.add_parser("read", help="查看全部")
@@ -131,7 +133,17 @@ def main():
 
     tok = _token()
     if args.cmd == "add":
-        add_entry(tok, args.agent, args.action, args.target, args.desc, args.note)
+        desc = args.desc
+        if args.desc_file:
+            with open(args.desc_file, encoding="utf-8") as f:
+                desc = f.read().strip()
+        note = args.note
+        if args.note_file:
+            with open(args.note_file, encoding="utf-8") as f:
+                note = f.read().strip()
+        if not desc:
+            sys.exit("ERROR: 必须提供 --desc 或 --desc-file")
+        add_entry(tok, args.agent, args.action, args.target, desc, note)
     elif args.cmd == "tail":
         tail(tok, args.n)
     elif args.cmd == "read":
