@@ -195,7 +195,7 @@ function renderMacro() {
         }
     }
     // ── 图2：锌 vs 板块 ──
-    const el2 = document.getElementById('chart-ni-sector');
+    const el2 = document.getElementById('chart-zn-sector');
     const sec = M.sectors || {};
     if (el2 && (sec.equal_weight_6m || sec.zn_vs_sector)) {
         echarts.init(el2).setOption(lineOpts([
