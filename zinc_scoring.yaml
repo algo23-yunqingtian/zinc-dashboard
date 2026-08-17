@@ -1,8 +1,8 @@
 # 锌(Zn)看板 AI 解盘评分配置
 # 复刻自 nickel_scoring.yaml（结构完全一致），按锌产业链重构：
 #   核心矛盾 = 矿端紧缺(锌精矿TC) ↔ 冶炼产能/利润博弈，需求端由镀锌(地产/基建)主导
-# 数据键名沿用镍版结构(B9_indonesia / B14_stainless / A3_substitution ...)，
-# 但其承载的已是锌数据（详见 docs/zinc_frame.md 第3节"键名映射"）。
+# 数据键名已锌化（B9_galvanizing=镀锌/合金, B14_premium=广东升贴水, B6_zinc_concentrate_tc=锌精矿TC, A2.import_ratio=进口占比），
+# 其承载的已是锌数据（详见 docs/zinc_frame.md 第3节"键名映射"）。
 symbol: Zn
 symbol_cn: 锌
 category: 有色金属
@@ -40,6 +40,8 @@ contradictions:
     bullish:  [锌精矿TC下行, 海外矿山减产, 矿端扰动/罢工, 进口矿到港减少]
     bearish:  [锌精矿TC上行, 新建矿山投产, 进口矿放量]
     news_keywords: [锌精矿, 锌矿, TC, 加工费, 嘉能可, 泰克, 伦丁, 秘鲁, 玻利维亚, 矿山减产, 矿端扰动]
+    # 数据代理方向：锌精矿TC 趋势下行=矿紧=利多锌价
+    signal: {series: tc, trend: down, direction: 1}
 
   - id: tc_rc_trend
     name: "TC/RC 加工费趋势"
@@ -47,6 +49,8 @@ contradictions:
     bullish:  [TC长单下调, 加工费创历史低位, 矿紧料紧]
     bearish:  [TC长单上调, 加工费回升, 矿松料松]
     news_keywords: [长单TC, 加工费谈判, benchmark TC, 锌精矿基准]
+    # 数据代理方向：TC 趋势下行=加工费走低=矿紧利多
+    signal: {series: tc, trend: down, direction: 1}
 
   - id: smelter_margin
     name: "冶炼利润与开工"
@@ -54,6 +58,8 @@ contradictions:
     bullish:  [冶炼利润修复, 检修后复产, 被动减产结束]
     bearish:  [冶炼利润转亏, 检修/被动减产扩大, 开工率下行]
     news_keywords: [冶炼利润, 冶炼厂检修, 减产, 开工率, 株冶, 中金岭南, 驰宏锌锗, 豫光金铅]
+    # 数据代理方向：冶炼利润 趋势下行=利润压缩=利空
+    signal: {series: smelt_profit, trend: down, direction: -1}
 
   - id: galvanizing_demand
     name: "镀锌需求（地产/基建）"
@@ -61,6 +67,8 @@ contradictions:
     bullish:  [镀锌板产量回升, 基建/地产政策刺激, 镀锌开工提升]
     bearish:  [镀锌板减产, 地产新开工走弱, 镀锌需求疲软]
     news_keywords: [镀锌, 镀锌板, 地产, 基建, 压铸锌合金, 氧化锌, 新开工, 稳增长]
+    # 数据代理方向：镀锌产量 趋势下行=需求弱=利空
+    signal: {series: galvanized_prod, trend: down, direction: -1}
 
   - id: inventory_draw
     name: "七地库存去化"
@@ -68,6 +76,8 @@ contradictions:
     bullish:  [七地库存去化, LME注销仓单上升, 低库存+back结构]
     bearish:  [七地库存累库, LME注册仓单增加, 高库存压力]
     news_keywords: [七地库存, 社会库存, LME库存, 注销仓单, 注册仓单, 低库存]
+    # 数据代理方向：七地库存 趋势下行=去化=利多
+    signal: {series: inv_18, trend: down, direction: 1}
 
   - id: import_window
     name: "进口窗口（沪伦比）"
@@ -75,6 +85,8 @@ contradictions:
     bullish:  [沪伦比修复, 进口盈利, 比价走强]
     bearish:  [沪伦比走低, 进口亏损, 比价走弱]
     news_keywords: [沪伦比, 进口盈亏, 比价, 人民币, 进口锌]
+    # 数据代理方向：沪伦比 趋势下行=进口亏损=利空
+    signal: {series: shfe_lme_ratio, trend: down, direction: -1}
 
   - id: macro_liquidity
     name: "宏观流动性"
@@ -82,6 +94,7 @@ contradictions:
     bullish:  [降息/宽松, 美元走弱, 有色板块资金流入]
     bearish:  [加息/紧缩, 美元走强, 风险偏好下降]
     news_keywords: [美联储, 降息, 美元指数, 流动性, 有色板块, 资金流]
+    # 宏观无单指标代理，方向仍依赖新闻措辞
 
   - id: policy_event
     name: "政策 / 环保限产"
@@ -89,6 +102,16 @@ contradictions:
     bullish:  [环保限产, 能耗双控, 供给侧约束]
     bearish:  [政策打压, 抛储, 产能放开]
     news_keywords: [环保, 限产, 能耗双控, 抛储, 供给侧, 碳中和]
+    # 政策事件型，方向仍依赖新闻措辞
+
+  - id: lme_squeeze
+    name: "LME结构性挤仓"
+    weight: 5
+    bullish:  [注销仓单占比飙升, LME back结构加深, 现货升水走阔, 仓单集中度异常]
+    bearish:  [注销仓单回落, contango结构, 挤仓解除]
+    news_keywords: [LME挤仓, 注销仓单, back结构, 现货升水, 仓单集中度, 挤仓, LME逼仓]
+    # 数据代理方向：LME注销仓单 趋势上行=挤仓=利多
+    signal: {series: lme_canc, trend: up, direction: 1}
 
 # ============================================================
 # 四、相关性闸门（与镍版一致：命中品种核心词 或 "限定词+锌产业词"组合）
