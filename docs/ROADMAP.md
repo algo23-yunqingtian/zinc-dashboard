@@ -25,6 +25,20 @@
 - 宏观/政策无单指标代理，仍靠新闻措辞。
 **实测（本地快照）**：`import_window`(沪伦比↓→利空)、`galvanizing_demand`(镀锌产量↓→利空)、`lme_squeeze`(注销↑→利空) 由数据正确判出。`tc`/`smelt_profit` 快照 len=0（线上填满后即生效）；`inv_18` 实为累库(sign+1)故不触发利多信号——均属正确行为。
 
+## 2.1 AI 解盘模型 & 为什么"改动后解盘没变"
+**AI 解盘调的模型**（`analyze_zn.py`）：
+- 主：`ZSUN` 端点 `zsun.funkits.cn`，模型 `Qwen36_35B`，key=`ZSUN_KEY`
+- 备：`DashScope` 端点 `token-plan.cn-beijing.maas.aliyuncs.com`，模型 `qwen3.7-max`，key=`DASHSCOPE_KEY`
+- **部署位置**：Hermes 的 ubuntu 服务器（`GH_STATIC_DATA="/home/ubuntu/..."`，`.env` 在他的机器）。**本机无 key、无该服务器网络，跑不了 AI 解盘**——只能本地验证 prompt 构造。
+
+**"改了引擎但 AI 解盘没变化"的三点根因**：
+1. 数据代理方向原本只注入"机器实时识别矛盾"**辅助段**(`contra_inject`)，而模型作结论主要看 prompt 里的 **18 指标数值段 + 新闻**（辅助段影响弱）→ 结论自然不变。
+2. 底层 data.json（数值/新闻）没变 → 模型核心输入没变。
+3. 代码 push 到 GitHub 后，**需 Hermes `git pull` + 重新跑 `analyze_zn.py`** 才在线上生效，不会自动同步。
+4. "内容雷同"反而说明模型没失效——真失效会返回空/报错（`所有 AI 供应商均不可用`），不是类似文本。
+
+**解法（已落地 2026-08-17）**：V2 模板新增 **"机器强制方向指令"段**，把 L2 引擎 high-confidence 方向（`direction≠0` 且 `confidence≥0.6`）以强指令注入，明确要求模型在【结论】【多空对比】优先采纳。本地 `build_prompt_v2` 实测注入成功（例：`异常波动·lme_canc：利空（置信1.0）`）。此改动仅改 prompt 模板，不碰 key/模型，Hermes 重跑即生效。
+
 ## 3. 9 条核心矛盾框架（zinc_scoring.yaml.contradictions，克隆自镍通用模板）
 | id | 权重 | 数据代理序列(trend→方向) |
 |---|---|---|
