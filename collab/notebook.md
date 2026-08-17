@@ -18,6 +18,11 @@
 
 ## 变更记录
 
+### [2026-08-17 18:10] CodeBuddy/YAQH侧 · 框架调研 + 文档现实对齐 + 引擎接线缺口定位
+- action: research+doc | target: COLLAB_RULES.md, collab/PROTOCOL.md, docs/collaboration.md, collab/verify_active_contradictions.py, collab/notebook.md
+- desc: 调研确认锌框架克隆自镍通用模板(nickel_scoring.yaml)；重写三份旧文档纠正"镍照搬"错误；新增离线探针；并定位"自动矛盾识别"当前缺口=引擎未接线。
+- note: 实测 data.json 有 18 个 charts 槽位但 active_contradictions=False；run_engine 在真实数据上跑通并识别 anomaly_lme_canc(利空)1条，schema合规。rule/divergence 因序列历史短(prefilter丢弃)仅1命中。结论：机器能跑，差"接线"(fetch_zn.py:main写字段 + analyze注入format_for_prompt)与更长历史。详见 COLLAB_RULES.md §4。
+
 ### [2026-08-17 17:30] CodeBuddy/YAQH侧 · PUSH 三处框架改动至 main
 - action: push | target: fetch_zn.py, contradiction_engine.py, collab/log.py, collab/notebook.md, collab/push.py, collab/HERMES_ONBOARDING.md
 - desc: 经用户授权，将本地三处改动（fetch_news 解析容错 / 矛盾引擎按序列去重 / data.json.active_contradictions 种子字段）push 至 GitHub main。新增 collab/push.py 复用推送助手、collab/HERMES_ONBOARDING.md 交接说明。
