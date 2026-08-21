@@ -71,11 +71,26 @@ def load_config():
             raw = yaml.safe_load(f)
         kw = {}
         for tier_name in ('A', 'B', 'C'):
-            for item in raw.get('tiers', {}).get(tier_name, {}).get('keywords', []):
-                name = item.get('name')
-                if name:
+            _tier_cfg = raw.get('tiers', {}).get(tier_name, {})
+            _def_w = _tier_cfg.get('weight', 0)
+            for item in _tier_cfg.get('keywords', []):
+                # 兼容两种结构：字符串数组（锌简化版） 或 对象数组（镍完整版）
+                if isinstance(item, str):
+                    name = item
                     kw[name] = {
-                        'weight': item.get('weight', 0),
+                        'weight': _def_w,
+                        'tier': tier_name,
+                        'terms': [name],
+                        'tags': [],
+                        'contradiction': None,
+                        'bias': 'neutral',
+                    }
+                else:
+                    name = item.get('name')
+                    if not name:
+                        continue
+                    kw[name] = {
+                        'weight': item.get('weight', _def_w),
                         'tier': tier_name,
                         'terms': item.get('terms', []),
                         'tags': item.get('tags', []),
@@ -172,8 +187,14 @@ def score_news(content, title='', keywords=None,
     if financial_context is None:
         financial_context = cfg['financial']
     if contradiction_weights is None:
-        contradiction_weights = {k: v.get('weight', 3)
-                                 for k, v in (cfg['raw'].get('contradictions') or {}).items()}
+        _contra = cfg['raw'].get('contradictions') or {}
+        # 兼容 dict 和 list 两种结构
+        if isinstance(_contra, list):
+            contradiction_weights = {c.get('id', c.get('name', '')): c.get('weight', 3)
+                                     for c in _contra if isinstance(c, dict)}
+        else:
+            contradiction_weights = {k: v.get('weight', 3)
+                                     for k, v in _contra.items()}
 
     full_text = (title or '') + ' ' + (content or '')
     is_fin = sum(1 for t in financial_context if t in full_text) >= 3

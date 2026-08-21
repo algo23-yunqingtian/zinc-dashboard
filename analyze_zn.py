@@ -746,32 +746,8 @@ def _load_env_keys():
 
 def call_ai(prompt, key):
     env_keys = _load_env_keys()
-    
-    # 1) ZSUN 优先（稳定）
-    zsun_key = key or env_keys.get("ZSUN_KEY", "")
-    if zsun_key:
-        try:
-            payload = {"model": ZSUN_MODEL, "messages": [
-                {"role":"system","content":"你是专业锌期货分析师，输出结构化研报，面向客户展示。"},
-                {"role":"user","content": prompt}
-            ], "max_tokens": 1500, "temperature": 0.7}
-            req = urllib.request.Request(ZSUN_URL, data=json.dumps(payload).encode(),
-                headers={"Content-Type":"application/json","Authorization": f"Bearer {zsun_key}"})
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                result = json.loads(resp.read())
-            msg = result["choices"][0]["message"]
-            content = msg.get("content") or msg.get("reasoning_content") or ""
-            return {
-                "content": content,
-                "model": ZSUN_MODEL,
-                "usage": result.get("usage", {}),
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "provider": "zsun"
-            }
-        except Exception as e:
-            print(f"[analyze.py] ZSUN failed: {e}, falling back to DashScope")
-    
-    # 2) DashScope 备用
+
+    # 1) DashScope（阿里百炼）优先 — 稳定可用
     dash_key = env_keys.get("DASHSCOPE_KEY", "")
     dash_model = env_keys.get("DASHSCOPE_MODEL", DASHSCOPE_MODEL)
     if dash_key:
@@ -794,7 +770,31 @@ def call_ai(prompt, key):
                 "provider": "dashscope"
             }
         except Exception as e:
-            print(f"[analyze.py] DashScope failed: {e}")
+            print(f"[analyze.py] DashScope failed: {e}, falling back to ZSUN")
+
+    # 2) ZSUN 备选
+    zsun_key = key or env_keys.get("ZSUN_KEY", "")
+    if zsun_key:
+        try:
+            payload = {"model": ZSUN_MODEL, "messages": [
+                {"role":"system","content":"你是专业锌期货分析师，输出结构化研报，面向客户展示。"},
+                {"role":"user","content": prompt}
+            ], "max_tokens": 1500, "temperature": 0.7}
+            req = urllib.request.Request(ZSUN_URL, data=json.dumps(payload).encode(),
+                headers={"Content-Type":"application/json","Authorization": f"Bearer {zsun_key}"})
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                result = json.loads(resp.read())
+            msg = result["choices"][0]["message"]
+            content = msg.get("content") or msg.get("reasoning_content") or ""
+            return {
+                "content": content,
+                "model": ZSUN_MODEL,
+                "usage": result.get("usage", {}),
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "provider": "zsun"
+            }
+        except Exception as e:
+            print(f"[analyze.py] ZSUN failed: {e}")
     
     return {"error": "所有 AI 供应商均不可用", "content": "", "model": "", "usage": {}, "timestamp": "", "provider": ""}
 
