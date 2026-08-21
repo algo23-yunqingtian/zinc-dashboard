@@ -720,17 +720,7 @@ def gen_ai(charts, news, macro=None):
             text = msg.get("content") or msg.get("reasoning_content") or ""
             return text
 
-    # 1) zsun (阿里 zsun.funkits.cn)
-    zsun_key = os.environ.get("ZSUN_KEY", "")
-    if zsun_key:
-        try:
-            result = call_ai(analyze.ZSUN_URL, zsun_key, analyze.ZSUN_MODEL)
-            if result:
-                return result
-        except Exception as e:
-            print(f"  ZSUN FAILED: {e}")
-
-    # 2) DashScope (阿里百炼)
+    # 1) DashScope (阿里百炼) 主用 — 稳定可用
     dash_key = os.environ.get("DASHSCOPE_KEY", "")
     if dash_key:
         try:
@@ -739,6 +729,16 @@ def gen_ai(charts, news, macro=None):
                 return result
         except Exception as e:
             print(f"  DashScope FAILED: {e}")
+
+    # 2) zsun (已弃用，仅最后兜底)
+    zsun_key = os.environ.get("ZSUN_KEY", "")
+    if zsun_key:
+        try:
+            result = call_ai(analyze.ZSUN_URL, zsun_key, analyze.ZSUN_MODEL)
+            if result:
+                return result
+        except Exception as e:
+            print(f"  ZSUN FAILED: {e}")
 
     # 3) SiliconFlow 备用
     if SF_KEY:
