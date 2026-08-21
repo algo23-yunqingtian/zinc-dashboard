@@ -11,6 +11,10 @@ if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import scorer_v2_zn as scorer_v2
 
+# L1 指标标准化 + L2 矛盾识别引擎（L4 投喂接入）
+from indicator_lib import prefilter
+from contradiction_engine import run_engine, format_for_prompt
+
 # Force IPv4 — dashscope IPv6 endpoint times out
 _original_getaddrinfo = socket.getaddrinfo
 def _ipv4_only_getaddrinfo(*args, **kwargs):
@@ -247,7 +251,7 @@ def build_prompt(charts, news, reports):
     a1_canc, _ = gv("A1_lme_inventory", "cancelled", charts)
     a2_ratio, a2_ratio_t = gv("A2_import_window", "shfe_lme_ratio", charts)
     a2_magma, _ = gv("A2_import_window", "magma_discount", charts)        # 进口盈亏(元/吨, 不含税)
-    a2_npi, _ = gv("A2_import_window", "indonesia_npi_rate", charts)      # 进口占比(%)
+    a2_npi, _ = gv("A2_import_window", "import_ratio", charts)      # 进口占比(%)
     a3_bean, _ = gv("A3_substitution", "zinc_bean", charts)               # 进口锌精矿TC(美元/干吨)
     a3_shfe, _ = gv("A3_substitution", "shfe_settle", charts)
     a4_profit, a4_profit_t = gv("A4_smelting_pressure", "profit", charts)  # 进口盈亏(含税)
@@ -260,13 +264,13 @@ def build_prompt(charts, news, reports):
     b4, b4_t = gv("B4_ratio", charts=charts)
     b5_18, b5_18_t = gv("B5_china_inventory", "inv_18", charts)
     b5_27, b5_27_t = gv("B5_china_inventory", "inv_27", charts)
-    b6, b6_t = gv("B6_bean_inventory", charts=charts)
+    b6, b6_t = gv("B6_zinc_concentrate_tc", charts=charts)
     b7, b7_t = gv("B7_smelting_profit", charts=charts)
     b8_prod, _ = gv("B8_china_production", "chinese_prod", charts)
     b8_cap, _ = gv("B8_china_production", "chinese_cap", charts)
-    b9_prod, _ = gv("B9_indonesia", "indonesia_prod", charts)
-    b9_cap, _ = gv("B9_indonesia", "indonesia_cap", charts)
-    b9_rate, b9_rate_t = gv("B9_indonesia", "indonesia_rate", charts)
+    b9_prod, _ = gv("B9_galvanizing", "galvanized_prod", charts)
+    b9_cap, _ = gv("B9_galvanizing", "apparent_cons", charts)
+    b9_rate, b9_rate_t = gv("B9_galvanizing", "alloy_rate", charts)
     b10, b10_t = gv("B10_sulfate_price", charts=charts)
     b11_out, _ = gv("B11_lme_flow", "outflow", charts)
     b11_in, _ = gv("B11_lme_flow", "inflow", charts)
@@ -275,7 +279,7 @@ def build_prompt(charts, news, reports):
     b13_fl, _ = gv("B13_lme_funding", "fund_long", charts)
     b13_cl, _ = gv("B13_lme_funding", "comm_long", charts)
     b13_cs, _ = gv("B13_lme_funding", "comm_short", charts)
-    b14_cr, b14_cr_t = gv("B14_stainless", "cold_rolling", charts)
+    b14_cr, b14_cr_t = gv("B14_premium", "guangdong_premium", charts)
 
     # ── 动态权重调整 ──
     def _volatility(vals):
@@ -317,7 +321,7 @@ def build_prompt(charts, news, reports):
 
 ### 国内库存
 - 国内8省锌锭库存: {fmt(b5_18,"万吨")}（变化:{trend_str(b5_18_t)}）
-- 锌锭现货库存(中国日度): {fmt(b6,"万吨")}（变化:{trend_str(b6_t)}）
+- 锌锭现货库存(中国日度): {fmt(b5_27,"万吨")}（变化:{trend_str(b5_27_t)}）
 
 ### 矿端与冶炼供给
 - 进口锌精矿TC: {fmt(b6,"美元/干吨")}（变化:{trend_str(b6_t)}，下行=矿紧=利多）
@@ -477,13 +481,39 @@ def _macro_section(macro):
         return ""
     return "\n".join(parts)
 
+def _load_contradiction_framework():
+    """读取 zinc_scoring.yaml 的 contradictions，格式化为投喂给 AI 的核心矛盾框架。"""
+    try:
+        import yaml, os
+        p = os.path.join(BASE_DIR, "zinc_scoring.yaml")
+        with open(p, encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+        items = cfg.get("contradictions") or []
+        rows = []
+        for c in items:
+            if isinstance(c, dict):
+                rows.append((c.get("weight", 0), c.get("name", "?"),
+                             c.get("bullish", []), c.get("bearish", [])))
+        rows.sort(reverse=True, key=lambda x: x[0])
+        lines = []
+        for i, (w, name, bull, bear) in enumerate(rows, 1):
+            b = " / ".join(str(x) for x in bull[:3]) if bull else "-"
+            r = " / ".join(str(x) for x in bear[:3]) if bear else "-"
+            lines.append(f"{i}. {name}（权重{w}）：利多[{b}]；利空[{r}]")
+        return "\n".join(lines) if lines else "（无矛盾框架）"
+    except Exception as e:
+        print(f"[analyze] 矛盾框架加载失败: {e}")
+        return "（矛盾框架加载失败）"
+
+
 def _v2_prompt_template(b1, b1_t, b2, b2_t, b4, b4_t, a3_bean, a3_shfe,
                         a1_inv, a1_inv_t, a1_reg, a1_canc, b11_in, b11_out,
                         b5_18, b5_18_t, b5_27, b5_27_t, b6, b6_t,
                         b7, b7_t, b8_prod, b8_cap, b9_rate, b9_rate_t, b9_prod, b9_cap,
                         a2_npi, a2_magma, a4_profit, b12, b12_t, b10, b14_cr, b14_cr_t,
                         b3, b3_t, b13_pos, b13_fl, b13_cl, b13_cs,
-                        nl, rp, weight_note, tech_line, macro_line):
+                        nl, rp, weight_note, tech_line, macro_line, contradiction_framework,
+                        contra_inject, contra_directive):
     """V2 prompt 模板（2026-08-16 试点版，学习锌报告可取之处）"""
     return f"""你是一位专业的锌(Zn)期货分析师。请根据以下数据，按【6步框架】给出实时解盘。
 
@@ -525,6 +555,15 @@ def _v2_prompt_template(b1, b1_t, b2, b2_t, b4, b4_t, a3_bean, a3_shfe,
 - 商业多头: {fmt(b13_cl,"手")} | 商业空头: {fmt(b13_cs,"手")}
 
 {macro_line}
+
+### 市场核心矛盾框架（来自 zinc_scoring.yaml，按权重降序；优先识别这些矛盾）
+{contradiction_framework}
+
+### 机器实时识别矛盾（L2引擎，按强度降序；结合上方数据实时算出，证据链见各条 strength/置信）
+{contra_inject}
+
+### 机器强制方向指令（L2引擎基于底层数据 high-confidence 判定，请在【结论】与【多空对比】中优先采纳并明确体现，勿与下方方向冲突）
+{contra_directive}
 
 ### 产业资讯
 {nl}
@@ -618,7 +657,7 @@ def build_prompt_v2(charts, news, reports, macro=None):
     a1_canc, _ = gv("A1_lme_inventory", "cancelled", charts)
     a2_ratio, a2_ratio_t = gv("A2_import_window", "shfe_lme_ratio", charts)
     a2_magma, _ = gv("A2_import_window", "magma_discount", charts)
-    a2_npi, _ = gv("A2_import_window", "indonesia_npi_rate", charts)
+    a2_npi, _ = gv("A2_import_window", "import_ratio", charts)
     a3_bean, _ = gv("A3_substitution", "zinc_bean", charts)
     a3_shfe, _ = gv("A3_substitution", "shfe_settle", charts)
     a4_profit, a4_profit_t = gv("A4_smelting_pressure", "profit", charts)
@@ -628,13 +667,13 @@ def build_prompt_v2(charts, news, reports, macro=None):
     b4, b4_t = gv("B4_ratio", charts=charts)
     b5_18, b5_18_t = gv("B5_china_inventory", "inv_18", charts)
     b5_27, b5_27_t = gv("B5_china_inventory", "inv_27", charts)
-    b6, b6_t = gv("B6_bean_inventory", charts=charts)
+    b6, b6_t = gv("B6_zinc_concentrate_tc", charts=charts)
     b7, b7_t = gv("B7_smelting_profit", charts=charts)
     b8_prod, _ = gv("B8_china_production", "chinese_prod", charts)
     b8_cap, _ = gv("B8_china_production", "chinese_cap", charts)
-    b9_prod, _ = gv("B9_indonesia", "indonesia_prod", charts)
-    b9_cap, _ = gv("B9_indonesia", "indonesia_cap", charts)
-    b9_rate, b9_rate_t = gv("B9_indonesia", "indonesia_rate", charts)
+    b9_prod, _ = gv("B9_galvanizing", "galvanized_prod", charts)
+    b9_cap, _ = gv("B9_galvanizing", "apparent_cons", charts)
+    b9_rate, b9_rate_t = gv("B9_galvanizing", "alloy_rate", charts)
     b10, b10_t = gv("B10_sulfate_price", charts=charts)
     b11_out, _ = gv("B11_lme_flow", "outflow", charts)
     b11_in, _ = gv("B11_lme_flow", "inflow", charts)
@@ -643,7 +682,7 @@ def build_prompt_v2(charts, news, reports, macro=None):
     b13_fl, _ = gv("B13_lme_funding", "fund_long", charts)
     b13_cl, _ = gv("B13_lme_funding", "comm_long", charts)
     b13_cs, _ = gv("B13_lme_funding", "comm_short", charts)
-    b14_cr, b14_cr_t = gv("B14_stainless", "cold_rolling", charts)
+    b14_cr, b14_cr_t = gv("B14_premium", "guangdong_premium", charts)
 
     # V2 新增：技术面 + 宏观（数据源标注已在段内）
     tech_ni = _tech_20d(charts.get("B1_shfe_price") or [])
@@ -671,12 +710,26 @@ def build_prompt_v2(charts, news, reports, macro=None):
 
     tech_line = f"- SHFE锌技术面(日K): {tech_ni}" if tech_ni else "- SHFE锌技术面(日K): 数据缺失（不足21个交易日）"
     macro_line = macro_block if macro_block else "### 宏观与跨品种\n- 宏观数据缺失（本轮未投喂）"
+    contradiction_framework = _load_contradiction_framework()
+    # ── L4 接入：跑 L2 引擎，把机器实时识别的矛盾注入 prompt ──
+    live_contra = run_engine(charts, news=news)
+    contra_inject = format_for_prompt(live_contra)
+    # 强指令：高置信方向 → 强制模型在结论中采纳（解决"机器段只是辅助、模型不听"的问题）
+    strong = [c for c in live_contra if c.get("direction") != 0 and c.get("confidence", 0) >= 0.6]
+    if strong:
+        contra_directive = "\n".join(
+            f"- {c['name']}：{'利多' if c['direction'] == 1 else '利空'}"
+            f"（置信{c.get('confidence', 0)}，策略{c.get('strategy', '')}）"
+            for c in strong)
+    else:
+        contra_directive = "（当前机器未识别到高置信方向，请基于上方数据自行判断）"
     return _v2_prompt_template(
         b1, b1_t, b2, b2_t, b4, b4_t, a3_bean, a3_shfe, a1_inv, a1_inv_t,
         a1_reg, a1_canc, b11_in, b11_out, b5_18, b5_18_t, b5_27, b5_27_t,
         b6, b6_t, b7, b7_t, b8_prod, b8_cap, b9_rate, b9_rate_t, b9_prod, b9_cap,
         a2_npi, a2_magma, a4_profit, b12, b12_t, b10, b14_cr, b14_cr_t, b3, b3_t,
-        b13_pos, b13_fl, b13_cl, b13_cs, nl, rp, weight_note, tech_line, macro_line)
+        b13_pos, b13_fl, b13_cl, b13_cs, nl, rp, weight_note, tech_line, macro_line, contradiction_framework,
+        contra_inject, contra_directive)
 
 # ── Call AI (ZSUN primary, DashScope fallback) ──
 def _load_env_keys():
@@ -753,7 +806,7 @@ def analyze(key):
     charts = data.get("charts", {})
     news = fetch_news()
     reports = fetch_reports()
-    prompt = build_prompt(charts, news, reports)
+    prompt = build_prompt_active(charts, news, reports, macro=None)
     ai_result = call_ai(prompt, key)
     # 提取方向
     content = ai_result["content"]

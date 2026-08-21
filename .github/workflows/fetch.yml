@@ -45,7 +45,7 @@ jobs:
       - name: Commit & push data.json
         run: |
           git config user.name "zn-bot"
-          git config user.email "ni-bot@github.com"
+          git config user.email "zn-bot@github.com"
           git add data.json
           git diff --cached --quiet || git commit -m "update data $(date +%Y-%m-%d\ %H:%M)"
           git push

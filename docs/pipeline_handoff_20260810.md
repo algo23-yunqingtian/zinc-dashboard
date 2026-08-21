@@ -28,7 +28,7 @@ akshare 新闻×20条                       ──► gen_ai() AI解盘(只喂~8
 ```
 
 **核心文件：**
-- `fetch_data.py` — 数据抓取+组装+分析生成（246行）
+- `fetch_zn.py` — 数据抓取+组装+分析生成（246行）
 - `data.json` — 输出产物（~170KB）
 - `static/charts.js` — 前端渲染
 - `index.html` — 页面结构
@@ -58,7 +58,7 @@ akshare 新闻×20条                       ──► gen_ai() AI解盘(只喂~8
 | **P0-2: 冠军Prompt** | ✅ | Top1(129分) 6步框架 + Top2(120分) 因果链融合，替换硬编码单套 |
 | **P0-3: 输出扩展** | ✅ | 300字→800字，max_tokens 800→1500，5段结构化（结论→矛盾→多空→风险→建议） |
 
-**变更统计：** fetch_data.py 367行（+144/-33）
+**变更统计：** fetch_zn.py 367行（+144/-33）
 **验收：**
 - 语法 ✓ | Git push ✓ (commit bee2cf2)
 - 数据提取：4731/4731 (100%) ✓
@@ -106,26 +106,29 @@ akshare 新闻×20条                       ──► gen_ai() AI解盘(只喂~8
 
 ### 5.1 当前18个Chart的选取逻辑
 
-| Chart | 指标 | 属于五层框架 | 选取原因 |
+| Chart | 指标(锌语义) | 属于五层框架 | 选取原因 |
 |-------|------|------------|---------|
 | A1_lme_inventory | LME库存/注册/注销 | 第二层-库存锚 | 锌供需核心指标 |
-| A2_import_window | 沪伦比/锌镁差/印尼NPI税率 | 第三层-价格信号 | 进口窗口开/关 |
-| A3_substitution | 锌豆价/SHFE结算 | 第三层-替代关系 | 锌豆替代精炼锌 |
-| A4_smelting_pressure | 利润/18家库存/27家库存/锌豆库存 | 第二层-供给锚 | 冶炼压力综合 |
+| A2_import_window | 沪伦比/进口盈亏/进口占比 | 第三层-价格信号 | 进口窗口开/关 |
+| A3_substitution | 锌精矿TC/SHFE结算 | 第三层-替代关系 | 矿端紧缺锚(键名沿用镍版) |
+| A4_smelting_pressure | 利润/18家库存/27家库存/锌锭库存 | 第二层-供给锚 | 冶炼压力综合 |
 | B1_shfe_price | SHFE锌价 | 第一层-基准价 | 国内定价基准 |
 | B2_lme_price | LME锌价 | 第一层-基准价 | 国际定价基准 |
 | B3_shfe_oi | SHFE持仓量 | 第四层-资金情绪 | 多空博弈强度 |
 | B4_ratio | 沪伦比 | 第三层-比价 | 进口窗口 |
 | B5_china_inventory | 18家+27家库存 | 第二层-库存锚 | 国内库存 |
-| B6_bean_inventory | 锌豆库存 | 第二层-供给锚 | 低成本替代 |
+| B6_bean_inventory | 锌锭库存 | 第二层-供给锚 | 社会库存 |
 | B7_smelting_profit | 冶炼利润 | 第二层-供给锚 | 冶炼瓶颈 |
 | B8_china_production | 中国产量/产能 | 第二层-供给锚 | 国内供给 |
-| B9_indonesia | 印尼产量/产能/开工率 | 第二层-供给锚 | 全球最大供给源 |
-| B10_sulfate_price | 硫酸锌价格 | 第二层-需求锚 | 新能源电池需求 |
+| B9_indonesia | 镀锌板产量/产能/开工率 | 第二层-供给锚 | 最大下游(~70%消费,键名沿用镍版) |
+| B10_sulfate_price | 硫酸锌价格(占位,数据点稀疏) | 第二层-需求锚 | 氧化锌/化工需求 |
 | B11_lme_flow | LME流入/流出 | 第二层-库存锚 | 隐性库存流动 |
 | B12_apparent_consumption | 表观消费 | 第二层-需求锚 | 总需求代理 |
 | B13_lme_funding | 资金面(4维度) | 第四层-资金情绪 | 新增，LME融资 |
-| B14_stainless | 不锈钢冷轧排产 | 第二层-需求锚 | 最大下游(~70%) |
+| B14_stainless | 广东0#锌锭升贴水 | 第三层-价差信号 | 现货强弱(键名沿用镍版) |
+
+> ⚠️ 注：A3/B9/B14 等 chart 键名沿用镍版结构（A3_substitution / B9_indonesia / B14_stainless），
+> 但其承载的已是锌数据。完整键名→锌语义映射见 `docs/zinc_frame.md` 第3节。
 
 **覆盖度评估：**
 - 第一层（产业链）：✅ B1/B2 基准价
@@ -157,7 +160,7 @@ Step 3: 验证数据可得性
 
 Step 4: 生成品种配置 JSON
         → 写入 [品种]_config.json（含指标ID映射+数据源）
-        → fetch_data.py 读取配置，自动抓取
+        → fetch_zn.py 读取配置，自动抓取
 
 Step 5: 回测验证（可选）
         → 历史数据跑相关性 → 确认领先性
@@ -186,7 +189,7 @@ Step 2: 人工融合：
         - Top2 的因果链格式
         - Top3 的风险提示要求
 Step 3: 去掉重复指令，加入"禁止事项"
-Step 4: 写入 fetch_data.py 的 gen_ai() 作为默认 Prompt
+Step 4: 写入 fetch_zn.py 的 gen_ai() 作为默认 Prompt
 Step 5: 后续每次 gen_ai() 运行后，自动打分 → 累计 → 月度更新
 ```
 
@@ -226,8 +229,8 @@ gen_ai() 生成分析
 |---|---|
 | Zhiji API key | `~/.hermes/scripts/zhiji_api.py` 第15行 |
 | SiliconFlow key | `/home/ubuntu/zinc_dashboard_gh/.env` 中 `SILICONFLOW_KEY` |
-| SiliconFlow 模型 | `SF_MODEL` (fetch_data.py 中定义) |
-| 数据抓取命令 | `ZHJI_KEY=<key> SILICONFLOW_KEY=$(grep SILICONFLOW_KEY .env\|cut -d= -f2) python3 fetch_data.py` |
+| SiliconFlow 模型 | `SF_MODEL` (fetch_zn.py 中定义) |
+| 数据抓取命令 | `ZHJI_KEY=<key> SILICONFLOW_KEY=$(grep SILICONFLOW_KEY .env\|cut -d= -f2) python3 fetch_zn.py` |
 | 同步到Nginx | `cp data.json index.html /home/ubuntu/zinc_gh_static/ && cp -r static/* /home/ubuntu/zinc_gh_static/static/` |
 
 ---
@@ -262,7 +265,7 @@ gen_ai() 生成分析
 - [x] **P3** (commit 9eabe20): AI失败回退规则分析 + 前端规则面板 + 交叉检查指示器
 
 ### 下一步
-1. **用户验收 P0** → 运行 `fetch_data.py` 产��实际 AI 分析，反馈打分
+1. **用户验收 P0** → 运行 `fetch_zn.py` 产��实际 AI 分析，反馈打分
 2. **进入 P1** → 规则vsAI交叉验证 + 新闻摘要LLM压缩
 3. **进入 P2** → 多轮生成 + 前端评分
 4. **进入 P3** → Prompt智能路由
